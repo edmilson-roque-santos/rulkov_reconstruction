@@ -280,12 +280,12 @@ def difference_spy(func1, func2):
 
 def term_integration(expr, params):
     
-    integr = np.float(0.0)       #Start the integral value as zero.
+    integr = float(0.0)       #Start the integral value as zero.
         
     #If expr is simply a constant, simply sum to the integral's value.
     if(expr.is_constant()):
         integr = expr
-        return np.float(integr)
+        return float(integr)
     
     #Otherwise, break expression in terms to calculate separately the contribution
     #for each of them in the product.        
@@ -303,7 +303,7 @@ def term_integration(expr, params):
                 expr_temp = params[set_symb_expr[symb_expr]]['moments']['m_{}'.format(tuple_a_x_b[1])]*tuple_a_x_b[0]
             if expr_temp.is_constant():
                 integr = expr_temp
-        return np.float(integr)
+        return float(integr)
             
 
 def fubini_integration_BF(expr_GS, num_of_args, params):
@@ -337,7 +337,7 @@ def fubini_integration_BF(expr_GS, num_of_args, params):
         for id_args in range(len(expr_args)):
             integral = integral + term_integration(expr_args[id_args], params)
         
-        return np.float(integral)
+        return float(integral)
     
 def spy_l2_inner_product(expr_1, expr_2, params):
     '''
@@ -365,7 +365,7 @@ def spy_l2_inner_product(expr_1, expr_2, params):
     
     integral = fubini_integration_BF(expr, num_of_args, params)
     
-    return np.float(integral)
+    return float(integral)
 
 def spy_gram_schmidt(exp_array, params_, power_indices):
     '''
@@ -453,14 +453,14 @@ def spy_gram_schmidt(exp_array, params_, power_indices):
                     
                     #Cut-off any inner product below threshold_proj
                     if(np.abs(integral) < threshold_proj):
-                        integral = np.float(0.0)
+                        integral = float(0.0)
                         
                     temp_func = difference_spy(temp_func, multiply_spy(integral, ref_func))
                     
                 integral = spy_l2_inner_product(temp_func, temp_func, params)
                 
                 norm = spy.sqrt(integral)
-                norm = np.float(norm)
+                norm = float(norm)
                 normed_func = temp_func/norm
                 params['orthnormfunc'][exp_array] = normed_func
                 if not use_path:    
@@ -788,7 +788,7 @@ def get_coeff_matrix_wrt_basis(sym_expr, dict_basis_functions):
     coefficient_vector = []
 
     #In case the sympy expression is the very first element of the GS process
-    if isinstance(sym_expr, np.float64) or isinstance(sym_expr, float):
+    if isinstance(sym_expr, float64) or isinstance(sym_expr, float):
         return sym_expr
     
     else:
