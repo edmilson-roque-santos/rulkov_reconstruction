@@ -105,6 +105,25 @@ def gen_net_dynamics(number_of_iterations, args, use_noise = False):
         
     return time_series[args['transient_time']:, :]
 
+def spy_gen_net_dyn(args):
+    
+    A = args['adj_matrix']
+    
+    N = 2*A.shape[0] #Number of vertices
+    
+    x_t = [spy.symbols('x_{}'.format(j)) for j in range(0, N)]
+    
+    Lambda = args['coupling']
+    max_degree = args['max_degree']
+    f_isolated_num = args['f_num']
+    f_isolated_den = args['f_den']
+    h_coupling = args['h']
+    
+    num = f_isolated_num(x_t) + h_coupling(x_t, args['adj_matrix'])*Lambda/(max_degree)
+    den = f_isolated_den(x_t)
+    
+    return num, den
+    
 
 def get_adj_row_from_coeff_vec(id_node, coefficient_vector, parameters, 
                                threshold_connect, add_weight = False):

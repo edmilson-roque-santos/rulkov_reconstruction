@@ -16,6 +16,7 @@ import os
 
 from EBP import net_dyn, tools
 from EBP.base_polynomial import pre_settings as pre_set 
+from EBP.base_polynomial import poly_library as polb
 from EBP.modules.rulkov import rulkov
 
 import lab_rulkov as lr
@@ -68,6 +69,33 @@ def out_dir_ortho(net_name, exp_name, params):
     
     return out_results_direc
 
+def retrive_true_coeff(params):
+
+    net_dynamics_dict = dict()
+    net_dynamics_dict['adj_matrix'] = params['adj_matrix']
+    degree = np.sum(params['adj_matrix'], axis=0)
+    
+    net_dynamics_dict['f_num'] = rulkov.spy_rulkov_map_num
+    net_dynamics_dict['f_den'] = rulkov.spy_rulkov_map_den
+    net_dynamics_dict['h'] = rulkov.spy_diff_coupling_x_num
+    net_dynamics_dict['max_degree'] = np.max(degree)
+    net_dynamics_dict['coupling'] = params['coupling']
+    
+    net_dyn_exp_num, net_dyn_exp_den = net_dyn.spy_gen_net_dyn(net_dynamics_dict)
+    
+    dict_basis_functions = polb.dict_canonical_basis(params)
+
+    N = params['adj_matrix'].shape[0]
+    
+    c_num = np.zeros((params['L'], 2*N))
+    c_den = np.zeros((params['L'], 2*N))
+    
+    for i in range(2*N):
+        c_num[:, i] = polb.get_coeff_matrix_wrt_basis(net_dyn_exp_num[i], dict_basis_functions)
+        c_den[:, i] = polb.get_coeff_matrix_wrt_basis(net_dyn_exp_den[i], dict_basis_functions)
+
+    return c_num, c_den
+
 def compare_script(script_dict):
     '''
     Script for basis choice comparison. 
@@ -117,15 +145,15 @@ def compare_script(script_dict):
         G = nx.read_edgelist("network_structure/{}.txt".format(parameters['network_name']),
                             nodetype = int, create_using = nx.Graph)
         
-    parameters['number_of_vertices'] = len(nx.nodes(G))
-    A = nx.to_numpy_array(G, nodelist = list(range(parameters['number_of_vertices'])))
+    N = len(nx.nodes(G))
+    A = nx.to_numpy_array(G, nodelist = list(range(N)))
     A = np.asarray(A)
     degree = np.sum(A, axis=0)
-    parameters['adj_matrix'] = A - degree*np.identity(A.shape[0])
+    parameters['adj_matrix'] = A
     parameters['coupling'] = 0.10
     #==========================================================#
     net_dynamics_dict = dict()
-    net_dynamics_dict['adj_matrix'] = parameters['adj_matrix']
+    net_dynamics_dict['adj_matrix'] = parameters['adj_matrix'] - degree*np.identity(A.shape[0])
     
     transient_time = 2000
     
@@ -185,7 +213,10 @@ def compare_script(script_dict):
         
         #net_dict = net_reconstr.reconstr(X_t, params, solver_optimization)
         net_dict = net_reconstr.ADM_reconstr(X_t, params)
-        
+    
+    params_ = net_dict['info_x_eps']['params']
+    net_dict['c_num'], net_dict['c_den'] = retrive_true_coeff(params_)    
+    
     return net_dict
     
 def save_dict(dictionary, out_dict):
@@ -320,7 +351,7 @@ import sympy as spy
 
 script_dict = dict()
 script_dict['opt_list'] = [True, False, False]
-script_dict['lgth_time_series'] = 2000
+script_dict['lgth_time_series'] = 10
 script_dict['exp_name'] = 'test_reconstr'
 script_dict['net_name'] = 'two_nodes'
 script_dict['id_trial'] = None
