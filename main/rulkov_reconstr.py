@@ -19,8 +19,7 @@ from EBP.base_polynomial import pre_settings as pre_set
 from EBP.modules.rulkov import rulkov
 
 import lab_rulkov as lr
-
-#import net_reconstr 
+import net_reconstr 
 
 colors = ['darkgrey', 'orange', 'darkviolet', 'darkslategrey', 'silver']
 folder_name = 'results'
@@ -103,7 +102,7 @@ def compare_script(script_dict):
     parameters['random_seed'] = script_dict.get('random_seed', 1)
     parameters['network_name'] = script_dict['net_name']
     parameters['max_deg_monomials'] = 3
-    parameters['expansion_crossed_terms'] = False#True#
+    parameters['expansion_crossed_terms'] = True#
     
     parameters['use_kernel'] = True
     parameters['noisy_measurement'] = False
@@ -123,26 +122,25 @@ def compare_script(script_dict):
     A = np.asarray(A)
     degree = np.sum(A, axis=0)
     parameters['adj_matrix'] = A - degree*np.identity(A.shape[0])
-    parameters['coupling'] = 1e-1
+    parameters['coupling'] = 0.10
     #==========================================================#
     net_dynamics_dict = dict()
     net_dynamics_dict['adj_matrix'] = parameters['adj_matrix']
     
-    alpha, sigma, beta = 4.4, 0.001, 0.001
+    transient_time = 2000
     
-    net_dynamics_dict['f'] = lambda x: rulkov.rulkov_map(x, alpha, sigma, beta)
-    net_dynamics_dict['h'] = lambda x: rulkov.diff_coupling_x(x, parameters['adj_matrix'])
+    net_dynamics_dict['f'] = rulkov.rulkov_map
+    net_dynamics_dict['h'] = rulkov.diff_coupling_x
     net_dynamics_dict['max_degree'] = np.max(degree)
     net_dynamics_dict['coupling'] = parameters['coupling']
     net_dynamics_dict['random_seed'] = parameters['random_seed']
+    net_dynamics_dict['transient_time'] = transient_time
     X_time_series = net_dyn.gen_net_dynamics(script_dict['lgth_time_series'], net_dynamics_dict)  
     
-    return X_time_series
     #==========================================================#    
-    '''
     net_dict = dict()
 
-    mask_bounds = (X_time_series < 0) | (X_time_series > 1) | (np.any(np.isnan(X_time_series)))
+    mask_bounds = (X_time_series < -1e5) | (X_time_series > 1e5) | (np.any(np.isnan(X_time_series)))
     if np.any(mask_bounds):
         raise ValueError("Network dynamics does not live in a compact set ")
         
@@ -165,27 +163,31 @@ def compare_script(script_dict):
             
             output_orthnormfunc_filename = out_dir_ortho_folder
         
+            cluster_list = [np.array([0, 2]), np.array([1, 3])]
+            
+            params['cluster_list'] = cluster_list
+            
             if not os.path.isfile(output_orthnormfunc_filename):
                 params['orthnorm_func_filename'] = output_orthnormfunc_filename
-                params['orthnormfunc'] = pre_set.create_orthnormfunc_kde(params)    
+                params['orthnormfunc'] = pre_set.create_orthnormfunc_clusters_kde(cluster_list, params)    
     
             if os.path.isfile(output_orthnormfunc_filename):
                 params['orthnorm_func_filename'] = output_orthnormfunc_filename
                       
-            params['build_from_reduced_basis'] = True
+            params['build_from_reduced_basis'] = False
         
-        params['cluster_list'] = [np.arange(0, params['number_of_vertices'], 1, dtype = int)]
         params['threshold_connect'] = 1e-8
         
         if script_dict['id_trial'] != None:
             params['id_trial'] = script_dict['id_trial']
         
-        solver_optimization = cp.ECOS
+        solver_optimization = cp.ECOS#CVXOPT#
         
-        net_dict = net_reconstr.reconstr(X_t, params, solver_optimization)
-    
+        #net_dict = net_reconstr.reconstr(X_t, params, solver_optimization)
+        net_dict = net_reconstr.ADM_reconstr(X_t, params)
+        
     return net_dict
-    '''
+    
 def save_dict(dictionary, out_dict):
     '''
     Save dictionary in the output dictionary and avoids some keys that are not
@@ -314,17 +316,40 @@ def compare_setup(exp_name, net_name, lgth_endpoints, random_seed = 1,
         out_results_hdf5.close()
         return exp_dictionary
 
-transient_time = 2000
-X_t = lr.gen_X_time_series_sample(7001)
-cluster_list = [np.array([0, 10]), np.array([1, 11]), 
-                np.array([2, 4, 6, 8, 12, 14, 16, 18]), 
-                np.array([3, 5, 7, 9, 13, 15, 17, 19])]
+import sympy as spy 
 
-lr.generate_orthonorm_funct(X_t[transient_time:, :],
-                             cluster_list,
-                             exp_name = 'gen_orthf_cluster', 
-                             max_deg_monomials = 2,
-                             use_single = False,
-                             use_crossed_terms = False)
+script_dict = dict()
+script_dict['opt_list'] = [True, False, False]
+script_dict['lgth_time_series'] = 2000
+script_dict['exp_name'] = 'test_reconstr'
+script_dict['net_name'] = 'two_nodes'
+script_dict['id_trial'] = None
+script_dict['random_seed'] = 1
+
+net_dict = compare_script(script_dict)
+
+ps = net_dict['params']
+L = ps['L']
+symbolic_PHI = ps['symbolic_PHI']
+spy_PHI = spy.Matrix(symbolic_PHI)
+
+sv = net_dict['x_eps_matrix'][:, 0].copy()
+sv = np.around(sv, 8)
+threshold = 1e-8#0.00095
+
+sv[np.absolute(sv) < threshold] = 0
+c_num_x = sv[:L]
+c_den_x = np.zeros(L)
+#c_den_x[0] = 1
+c_den_x = sv[L:]
 
 
+c_num_spy_x = spy.Matrix(c_num_x)
+c_den_spy_x = spy.Matrix(-1.0*c_den_x)
+
+#calculate the numerator and denominator using symbolic representation
+num_x = spy_PHI.dot(c_num_spy_x)
+den_x = spy_PHI.dot(c_den_spy_x)
+
+exp_x = spy.simplify(num_x/den_x)
+print(exp_x)

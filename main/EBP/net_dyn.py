@@ -40,7 +40,7 @@ def net_dynamics(x, args):
     f_isolated = args['f']
     h_coupling = args['h']
     
-    return f_isolated(x) + h_coupling(x)*Lambda/(max_degree)
+    return f_isolated(x) + h_coupling(x, args['adj_matrix'])*Lambda/(max_degree)
         
 def gen_net_dynamics(number_of_iterations, args, use_noise = False):
     '''
@@ -84,6 +84,8 @@ def gen_net_dynamics(number_of_iterations, args, use_noise = False):
     
     N = 2*A.shape[0] #Number of vertices
     
+    number_of_iterations = args['transient_time'] + number_of_iterations
+    
     time_series  = np.zeros((int(number_of_iterations), N))
     x_state = np.zeros(N)
     initial_condition = rng.random(N) #Random initial condition
@@ -101,7 +103,7 @@ def gen_net_dynamics(number_of_iterations, args, use_noise = False):
             x_state = x_state + args['eps']*rng.random(N)
         time_series[i, :] = x_state.copy()
         
-    return time_series
+    return time_series[args['transient_time']:, :]
 
 
 def get_adj_row_from_coeff_vec(id_node, coefficient_vector, parameters, 

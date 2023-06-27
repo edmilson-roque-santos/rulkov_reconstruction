@@ -113,7 +113,7 @@ def l_1_optimization(b, PHI, noisy_measurement, params, solver_default = cp.ECOS
         
             return sparse_vector, nnz_l1 
             
-def iteratively_soft_thresholding(b, PHI, noisy_measurement, params):
+def iteratively_soft_thresholding(b, PHI, params):
     '''
     
 

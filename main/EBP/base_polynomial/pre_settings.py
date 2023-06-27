@@ -1,6 +1,8 @@
 import numpy as np
 import os
 
+from EBP.modules.rulkov import rulkov
+
 from . import poly_library as polb
 from .triage import triage_params
 
@@ -124,4 +126,27 @@ def set_orthnormfunc(output_orthnormfunc_filename, params):
     
     return parameters
     
+
+
+#=============================================================================#
+#Generate orthonormal functions
+#=============================================================================#
+
+def create_orthnormfunc_clusters_kde(cluster_list, params, 
+                                     save_orthnormfunc = True):
+    """
+    Routine to calculate for each coupling strength the orthonormal functions 
+    relative to the data which lies in the subset of the phase space.
     
+    """
+    
+    params['build_from_reduced_basis'] = False
+    params['save_orthnormfunc'] = save_orthnormfunc
+    params = triage_params(params)
+    params['cluster_list'] = cluster_list
+    X_t = params['X_time_series_data']
+    params = rulkov.params_cluster(params['cluster_list'], params)   
+
+    PHI, params = polb.library_matrix(X_t, params)        
+    
+    return params

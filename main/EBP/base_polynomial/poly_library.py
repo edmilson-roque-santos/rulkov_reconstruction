@@ -766,6 +766,20 @@ def dict_canonical_basis(params):
         
     return dict_basis_functions
 
+def symbolic_canonical(params):
+    
+    N = params['number_of_vertices']
+    power_indices = params['power_indices']
+    x_t = [spy.symbols('x_{}'.format(j)) for j in range(0, N)]
+
+    PHI = []
+    
+    for j in range(power_indices.shape[0]):
+        PHI.append(sympy_polynomial_exp(x_t, power_indices[j, :]))
+        
+    params['symbolic_PHI'] = PHI 
+    
+    return params
 
 def get_coeff_matrix_wrt_basis(sym_expr, dict_basis_functions):
     '''
@@ -788,7 +802,7 @@ def get_coeff_matrix_wrt_basis(sym_expr, dict_basis_functions):
     coefficient_vector = []
 
     #In case the sympy expression is the very first element of the GS process
-    if isinstance(sym_expr, float64) or isinstance(sym_expr, float):
+    if isinstance(sym_expr, float):
         return sym_expr
     
     else:
@@ -1042,6 +1056,29 @@ def reduced_poly_orthonormal_PHI(X_t, params, reduced_pindex):
     
     return PHI, params
 
+
+def implicit_PHI(node, B, PHI, params):
+    
+    N = params['number_of_vertices']
+    
+    x_t = [spy.symbols('x_{}'.format(j)) for j in range(0, N)]
+    
+    exp_vec = np.zeros(N)
+    exp_vec[node] = 1
+        
+    #Create a expression to be evaluated at data X_t
+    f = spy.lambdify([x_t], params['orthnormfunc'][tuple(exp_vec)],
+                     'numpy')
+    
+    #Evaluate expression f at X_t as first column of library matrix
+    b = f(B.T)
+    
+    THETA = np.hstack((PHI,np.diag(b) @ PHI[:, 1:])) 
+    
+    return THETA
+
+
+
 def library_matrix(X_t, params): 
     '''
     Parameters
@@ -1079,6 +1116,7 @@ def library_matrix(X_t, params):
     if canonical_basis:
         power_indices = index_iteration(params)
         params['power_indices'] = power_indices
+        params = symbolic_canonical(params)
         PHI = np.zeros((M, L))
         
         PHI[:, 0] = np.ones(M)/np.sqrt(M)

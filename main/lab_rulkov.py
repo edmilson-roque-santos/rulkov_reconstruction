@@ -18,9 +18,9 @@ import h5dict
 
 from EBP.base_polynomial import triage as trg
 from EBP.base_polynomial import poly_library as polb
+from EBP.modules.rulkov import rulkov
 
 from EBP import tools, net_dyn
-from EBP.modules.rulkov import rulkov
 
 # Set plotting parameters
 params_plot = {'axes.labelsize': 15,
@@ -65,98 +65,19 @@ def gen_X_time_series_sample(lgth_time_series, net_name = 'star_graphs_n_4_hub_c
     net_dynamics_dict = dict()
     net_dynamics_dict['adj_matrix'] = parameters['adj_matrix']
     
-    alpha, sigma, beta = 4.4, 0.001, 0.001
+    transient_time = 2000
     
-    net_dynamics_dict['f'] = lambda x: rulkov.rulkov_map(x, alpha, sigma, beta)
-    net_dynamics_dict['h'] = lambda x: rulkov.diff_coupling_x(x, parameters['adj_matrix'])
+    net_dynamics_dict['f'] = rulkov.rulkov_map
+    net_dynamics_dict['h'] = rulkov.diff_coupling_x
     net_dynamics_dict['max_degree'] = np.max(degree)
     net_dynamics_dict['coupling'] = parameters['coupling']
     net_dynamics_dict['random_seed'] = parameters['random_seed']
+    net_dynamics_dict['transient_time'] = transient_time
+
     X_time_series = net_dyn.gen_net_dynamics(lgth_time_series, net_dynamics_dict)  
     
     return X_time_series
 
-#=============================================================================#
-#Generate orthonormal functions
-#=============================================================================#
-
-def generate_orthonorm_funct(X_time_series,
-                             cluster_list,
-                             exp_name = 'gen_orthf_cluster', 
-                             max_deg_monomials = 2,
-                             use_single = False,
-                             use_crossed_terms = False):
-    """
-    Routine to calculate for each coupling strength the orthonormal functions 
-    relative to the data which lies in the subset of the phase space.
-    
-    """
-    
-    ############# Construct the parameters dictionary ##############
-    parameters = dict()
-    
-    parameters['exp_name'] = exp_name
-    parameters['Nseeds'] = 1
-    
-    parameters['network_name'] = "rulkov"
-    parameters['max_deg_monomials'] = max_deg_monomials
-    parameters['expansion_crossed_terms'] = use_crossed_terms
-    parameters['single_density'] = use_single 
-    
-    parameters['use_kernel'] = True
-    parameters['normalize_coupling_function'] = False
-    parameters['use_orthonormal'] = True
-    parameters['use_canonical'] = False
-   
-    parameters['cluster_list'] = cluster_list
-    
-    ##### Identification for output
-    folder='orth_data'
-    outfilename = os.path.join(folder, '')
-    outfile_functions = os.path.join(outfilename, exp_name)
-    outfilename = os.path.join(outfilename, "")
-    
-    if os.path.isdir(outfile_functions) == False:
-        os.makedirs(outfile_functions)
-    outfile_functions = os.path.join(outfile_functions, "")
-    
-    X_time_series = X_time_series[:, :]
-    lgth_time_series = X_time_series.shape[0]
-    
-    parameters['lower_bound'] = np.min(X_time_series)
-    parameters['upper_bound'] = np.max(X_time_series)
-    
-    parameters['number_of_vertices'] = X_time_series.shape[1]
-    parameters['length_of_time_series'] = X_time_series.shape[0] - 1
-    
-    parameters['X_time_series_data'] = X_time_series
-    
-    parameters['coupling'] = 1e-1
-    parameters['threshold_connect'] = 1e-8
-    
-    for seed in range(1, parameters['Nseeds'] + 1):
-        #Extract the time series for the state and map
-        X_t = X_time_series[:-1, :]
-        params = parameters.copy()
-        
-        params['random_seed'] = seed
-        
-        if params['use_orthonormal']:
-            params['orthnorm_func_filename'] = outfile_functions+\
-            "orthnorm_sig_{:.6f}_deg_{}_lgth_{}".format(parameters['coupling'], 
-                                                        params['max_deg_monomials'],
-                                                        lgth_time_series)
-            
-            #For the opto electronic data, we can not use build from reduced basis
-            #The trick to reduce the number of basis functions does not work.
-            params['build_from_reduced_basis'] = False
-            params['save_orthnormfunc'] = True
-            params = trg.triage_params(params)
-
-            if not use_single:
-                params = rulkov.params_cluster(parameters['cluster_list'], params)   
-        
-        PHI, params = polb.library_matrix(X_t, params)    
     
 
 #=============================================================================#

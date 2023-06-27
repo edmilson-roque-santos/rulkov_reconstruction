@@ -10,23 +10,30 @@ import numpy as np
 import sympy as spy
 from scipy import stats
 
-def rulkov_map(x_state, alpha, sigma, beta):
-    x = x_state[0::2]
-    y = x_state[1::2]
+def rulkov_map(x_state, alpha = 4.4, sigma = 0.001, beta = 0.001):
+    x_ = x_state.copy()
+    
+    x = x_[0::2]
+    y = x_[1::2]
     
     f_x_iteration = alpha/(1.0 + x**2) + y
     f_y_iteration = y - sigma*x - beta
     
-    x_state[0::2] = f_x_iteration
-    x_state[1::2] = f_y_iteration
+    x_state = np.zeros(x_.shape)
+    
+    x_state[0::2] = f_x_iteration.copy()
+    x_state[1::2] = f_y_iteration.copy()
     
     return x_state
 
-def diff_coupling_x(x_state, L):
-    x = x_state[0::2]
+def diff_coupling_x(x_state, A):
+    x_ = x_state.copy()
     
     cplg_x = np.zeros(x_state.shape)
-    cplg_x[0::2] = L @ x 
+    
+    x = x_[0::2]
+    
+    cplg_x[0::2] = A @ x
     
     return cplg_x
 
