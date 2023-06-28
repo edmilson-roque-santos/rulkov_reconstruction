@@ -30,7 +30,7 @@ tqdm_par = {
 }
 
 
-def retrive_true_coeff(params):
+def symb_net_dyn(params):
 
     net_dynamics_dict = dict()
     net_dynamics_dict['adj_matrix'] = params['adj_matrix']
@@ -43,20 +43,6 @@ def retrive_true_coeff(params):
     
     net_dyn_exp = net_dyn.spy_gen_net_dyn(net_dynamics_dict)
     
-    '''
-    dict_basis_functions = polb.dict_canonical_basis(params)
-
-    N = params['adj_matrix'].shape[0]
-    
-    c_num = np.zeros((params['L'], 2*N))
-    c_den = np.zeros((params['L'], 2*N))
-    
-    for i in range(2*N):
-        c_num[:, i] = polb.get_coeff_matrix_wrt_basis(net_dyn_exp_num[i], dict_basis_functions)
-        c_den[:, i] = polb.get_coeff_matrix_wrt_basis(net_dyn_exp_den[i], dict_basis_functions)
-    
-    coeff_matrix = np.vstack((c_num, c_den))
-    '''
     return net_dyn_exp
 
 def retrieve_dyn_sym(x_eps, ps, indep_term = True):
@@ -217,8 +203,8 @@ def reconstr(X_t_, params, solver_optimization = solver_default):
         
         x_eps_matrix[:, id_node] = x_eps_can
         
-        net_dict['sym_node_dyn'][id_node] = retrieve_dyn_sym(x_eps_can, params_, 
-                                                             indep_term = True)
+        net_dict['sym_node_dyn'][id_node] = symb_net_dyn(x_eps_can, params_, 
+                                                         indep_term = True)
     
     net_dict['info_x_eps'] = x_eps_dict.copy()
     net_dict['x_eps_matrix'] = x_eps_matrix
@@ -339,11 +325,10 @@ def ADM_reconstr(X_t_, params):
             x_eps_can = np.delete(x_eps_can_, params_['L'])
             '''
             x_eps_can = R @ x_eps
-        #x_eps_dict[id_node] = x_eps_can
         
         x_eps_matrix[:, id_node] = x_eps_can
-        net_dict['sym_node_dyn'][id_node] = retrieve_dyn_sym(x_eps_can, params_, 
-                                                             indep_term = False)
+        net_dict['sym_node_dyn'][id_node] = symb_net_dyn(x_eps_can, params_, 
+                                                         indep_term = False)
     
     net_dict['info_x_eps'] = x_eps_dict.copy()
     net_dict['x_eps_matrix'] = x_eps_matrix

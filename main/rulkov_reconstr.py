@@ -332,32 +332,3 @@ script_dict['id_trial'] = None
 script_dict['random_seed'] = 1
 
 net_dict = compare_script(script_dict)
-'''
-ps = net_dict['params']
-L = ps['L']
-symbolic_PHI = ps['symbolic_PHI']
-spy_PHI = spy.Matrix(symbolic_PHI)
-
-sv = net_dict['x_eps_matrix'][:, 0].copy()
-roud = 8
-sv = np.around(sv, roud)
-threshold = 10**(-roud)
-
-sv[np.absolute(sv) < threshold] = 0
-c_num_x = sv[:L]
-c_den_x = np.zeros(L)
-#c_den_x[0] = 1
-c_den_x = sv[L:]
-factor = np.max(np.absolute(c_den_x))
-c_den_x = c_den_x/factor
-
-c_num_spy_x = spy.Matrix(c_num_x/factor).n(roud)
-c_den_spy_x = spy.Matrix(-1.0*c_den_x).n(roud)
-
-#calculate the numerator and denominator using symbolic representation
-num_x = spy_PHI.dot(c_num_spy_x)
-den_x = spy_PHI.dot(c_den_spy_x)
-
-exp_x = num_x/den_x
-print(exp_x)
-'''

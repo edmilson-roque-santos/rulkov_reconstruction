@@ -106,7 +106,31 @@ def gen_net_dynamics(number_of_iterations, args, use_noise = False):
     return time_series[args['transient_time']:, :]
 
 def spy_gen_net_dyn(args):
-    
+    '''
+    Symbolic network dynamics map.
+
+    Parameters
+    ----------
+    args : dict
+        Dictionary with network dynamics information content.
+        Keys: 
+            'adj_matrix' : numpy array
+                Adjacency matrix 
+            'coupling' : float
+                coupling strength
+            'max_degree' : int
+                maximum degree of the network
+            'f' : sympy Matrix
+                symbolic isolated map
+            'h' : sympy Matrix
+                symbolic coupling function
+
+    Returns
+    -------
+    F : sympy Matrix
+        Symbolic network dynamics.
+
+    '''
     A = args['adj_matrix']
     
     N = 2*A.shape[0] #Number of vertices
