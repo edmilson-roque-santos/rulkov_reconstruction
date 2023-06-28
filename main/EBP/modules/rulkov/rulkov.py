@@ -39,7 +39,7 @@ def diff_coupling_x(x_state, A):
     
     return cplg_x
 
-def spy_rulkov_map_num(x_t, alpha = 4.4, sigma = 0.001, beta = 0.001):
+def spy_rulkov_map(x_t, alpha = 4.4, sigma = 0.001, beta = 0.001):
         
     x = x_t[0::2]
     y = x_t[1::2]
@@ -49,26 +49,12 @@ def spy_rulkov_map_num(x_t, alpha = 4.4, sigma = 0.001, beta = 0.001):
     f_isolated = spy.zeros(2*N, 1)
     
     for i in range(N):
-        f_isolated[2*i] = alpha + y[i] + y[i]*x[i]**2
+        f_isolated[2*i] = alpha/(1 + x[i]**2) + y[i]
         f_isolated[2*i + 1] = y[i] - sigma*x[i] - beta
         
     return f_isolated 
-
-def spy_rulkov_map_den(x_t, alpha = 4.4, sigma = 0.001, beta = 0.001):
-
-    x = x_t[0::2]
-    
-    N = len(x)
-    
-    f_isolated = spy.zeros(2*N, 1)
-    
-    for i in range(N):
-        f_isolated[2*i] = 1 + x[i]**2
-        f_isolated[2*i + 1] = 1
-        
-    return f_isolated 
             
-def spy_diff_coupling_x_num(x_t, A):
+def spy_diff_coupling_x(x_t, A):
     
     N_2 = len(x_t)
     
@@ -82,20 +68,7 @@ def spy_diff_coupling_x_num(x_t, A):
     a = spy_A @ x
     
     for i in range(int(N_2/2)):
-        cplg_x[2*i] = spy.expand(a[i] + a[i]*x[i]**2)
-        
-    return cplg_x
-
-def spy_diff_coupling_x_den(x_t, A):
-    
-    N_2 = len(x_t)
-        
-    cplg_x = spy.zeros(N_2, 1)
-    
-    x = spy.Matrix(x_t[0::2])
-        
-    for i in range(int(N_2/2)):
-        cplg_x[2*i] = 1 + x[i]**2
+        cplg_x[2*i] = a[i]#spy.expand(a[i] + a[i]*x[i]**2)
         
     return cplg_x
 

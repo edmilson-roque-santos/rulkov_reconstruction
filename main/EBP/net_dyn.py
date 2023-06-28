@@ -115,14 +115,12 @@ def spy_gen_net_dyn(args):
     
     Lambda = args['coupling']
     max_degree = args['max_degree']
-    f_isolated_num = args['f_num']
-    f_isolated_den = args['f_den']
+    f_isolated = args['f']
     h_coupling = args['h']
     
-    num = f_isolated_num(x_t) + h_coupling(x_t, args['adj_matrix'])*Lambda/(max_degree)
-    den = f_isolated_den(x_t)
+    F = f_isolated(x_t) + h_coupling(x_t, args['adj_matrix'])*Lambda/(max_degree)
     
-    return num, den
+    return F
     
 
 def get_adj_row_from_coeff_vec(id_node, coefficient_vector, parameters, 

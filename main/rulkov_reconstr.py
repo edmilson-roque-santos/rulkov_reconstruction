@@ -69,32 +69,7 @@ def out_dir_ortho(net_name, exp_name, params):
     
     return out_results_direc
 
-def retrive_true_coeff(params):
 
-    net_dynamics_dict = dict()
-    net_dynamics_dict['adj_matrix'] = params['adj_matrix']
-    degree = np.sum(params['adj_matrix'], axis=0)
-    
-    net_dynamics_dict['f_num'] = rulkov.spy_rulkov_map_num
-    net_dynamics_dict['f_den'] = rulkov.spy_rulkov_map_den
-    net_dynamics_dict['h'] = rulkov.spy_diff_coupling_x_num
-    net_dynamics_dict['max_degree'] = np.max(degree)
-    net_dynamics_dict['coupling'] = params['coupling']
-    
-    net_dyn_exp_num, net_dyn_exp_den = net_dyn.spy_gen_net_dyn(net_dynamics_dict)
-    
-    dict_basis_functions = polb.dict_canonical_basis(params)
-
-    N = params['adj_matrix'].shape[0]
-    
-    c_num = np.zeros((params['L'], 2*N))
-    c_den = np.zeros((params['L'], 2*N))
-    
-    for i in range(2*N):
-        c_num[:, i] = polb.get_coeff_matrix_wrt_basis(net_dyn_exp_num[i], dict_basis_functions)
-        c_den[:, i] = polb.get_coeff_matrix_wrt_basis(net_dyn_exp_den[i], dict_basis_functions)
-
-    return c_num, c_den
 
 def compare_script(script_dict):
     '''
@@ -215,7 +190,6 @@ def compare_script(script_dict):
         net_dict = net_reconstr.ADM_reconstr(X_t, params)
     
     params_ = net_dict['info_x_eps']['params']
-    net_dict['c_num'], net_dict['c_den'] = retrive_true_coeff(params_)    
     
     return net_dict
     
@@ -351,36 +325,39 @@ import sympy as spy
 
 script_dict = dict()
 script_dict['opt_list'] = [True, False, False]
-script_dict['lgth_time_series'] = 10
+script_dict['lgth_time_series'] = 500
 script_dict['exp_name'] = 'test_reconstr'
 script_dict['net_name'] = 'two_nodes'
 script_dict['id_trial'] = None
 script_dict['random_seed'] = 1
 
 net_dict = compare_script(script_dict)
-
+'''
 ps = net_dict['params']
 L = ps['L']
 symbolic_PHI = ps['symbolic_PHI']
 spy_PHI = spy.Matrix(symbolic_PHI)
 
 sv = net_dict['x_eps_matrix'][:, 0].copy()
-sv = np.around(sv, 8)
-threshold = 1e-8#0.00095
+roud = 8
+sv = np.around(sv, roud)
+threshold = 10**(-roud)
 
 sv[np.absolute(sv) < threshold] = 0
 c_num_x = sv[:L]
 c_den_x = np.zeros(L)
 #c_den_x[0] = 1
 c_den_x = sv[L:]
+factor = np.max(np.absolute(c_den_x))
+c_den_x = c_den_x/factor
 
-
-c_num_spy_x = spy.Matrix(c_num_x)
-c_den_spy_x = spy.Matrix(-1.0*c_den_x)
+c_num_spy_x = spy.Matrix(c_num_x/factor).n(roud)
+c_den_spy_x = spy.Matrix(-1.0*c_den_x).n(roud)
 
 #calculate the numerator and denominator using symbolic representation
 num_x = spy_PHI.dot(c_num_spy_x)
 den_x = spy_PHI.dot(c_den_spy_x)
 
-exp_x = spy.simplify(num_x/den_x)
+exp_x = num_x/den_x
 print(exp_x)
+'''

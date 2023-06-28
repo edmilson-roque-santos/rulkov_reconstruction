@@ -5,6 +5,7 @@ import cvxpy as cp
 import networkx as nx 
 import numpy as np
 import os
+import sympy as spy
 from tqdm import tqdm
 
 from EBP import tools, net_dyn, optimizer
@@ -13,6 +14,7 @@ from EBP.base_polynomial import poly_library as polb
 from EBP.base_polynomial import triage as trg
 from EBP import greedy_algorithms as gnr_alg
 from EBP.modules.ADM import ADM
+from EBP.modules.rulkov import rulkov
 
 solver_default = cp.ECOS
 VERBOSE = True
@@ -27,6 +29,69 @@ tqdm_par = {
 "smoothing": 0
 }
 
+
+def retrive_true_coeff(params):
+
+    net_dynamics_dict = dict()
+    net_dynamics_dict['adj_matrix'] = params['adj_matrix']
+    degree = np.sum(params['adj_matrix'], axis=0)
+    
+    net_dynamics_dict['f'] = rulkov.spy_rulkov_map
+    net_dynamics_dict['h'] = rulkov.spy_diff_coupling_x
+    net_dynamics_dict['max_degree'] = np.max(degree)
+    net_dynamics_dict['coupling'] = params['coupling']
+    
+    net_dyn_exp = net_dyn.spy_gen_net_dyn(net_dynamics_dict)
+    
+    '''
+    dict_basis_functions = polb.dict_canonical_basis(params)
+
+    N = params['adj_matrix'].shape[0]
+    
+    c_num = np.zeros((params['L'], 2*N))
+    c_den = np.zeros((params['L'], 2*N))
+    
+    for i in range(2*N):
+        c_num[:, i] = polb.get_coeff_matrix_wrt_basis(net_dyn_exp_num[i], dict_basis_functions)
+        c_den[:, i] = polb.get_coeff_matrix_wrt_basis(net_dyn_exp_den[i], dict_basis_functions)
+    
+    coeff_matrix = np.vstack((c_num, c_den))
+    '''
+    return net_dyn_exp
+
+def retrieve_dyn_sym(x_eps, ps, indep_term = True):
+    L = ps['L']
+    symbolic_PHI = ps['symbolic_PHI']
+    spy_PHI = spy.Matrix(symbolic_PHI)
+    
+    sv = x_eps.copy()
+    roud = 8
+    sv = np.around(sv, roud)
+    threshold = 10**(-roud)
+
+    sv[np.absolute(sv) < threshold] = 0
+    
+    if indep_term:
+        c_num_x = sv[:L]
+        c_den_x = np.zeros(L)
+        c_den_x[0] = 1
+        c_den_x[1:] = sv[L:]
+        
+    else:               
+        c_num_x = sv[:L]
+        c_den_x = np.zeros(L)
+        c_den_x = sv[L:]
+    
+    c_num_spy_x = spy.Matrix(c_num_x).n(roud)
+    c_den_spy_x = spy.Matrix(-1.0*c_den_x).n(roud)
+
+    #calculate the numerator and denominator using symbolic representation
+    num_x = spy_PHI.dot(c_num_spy_x)
+    den_x = spy_PHI.dot(c_den_spy_x)
+
+    symb_node_dyn = num_x/den_x
+
+    return symb_node_dyn
 
 def reconstr(X_t_, params, solver_optimization = solver_default):
     '''
@@ -71,11 +136,9 @@ def reconstr(X_t_, params, solver_optimization = solver_default):
     threshold = params_['threshold_connect']
     
     net_dict = dict()          #create greedy algorithm dictionary to save info
-    net_dict['G'] = nx.Graph() #create the empty graph
-    net_dict['G'].add_nodes_from(params_['nodelist']) 
-    net_dict['A'] = nx.to_numpy_array(net_dict['G'])
     
     net_dict['info_x_eps'] = dict()   #info is dictionary with several info saving along the process
+    net_dict['sym_node_dyn'] = dict()
     
     params_['number_of_vertices'] = params_['nodelist'].shape[0]
     if params_['use_canonical']:
@@ -114,7 +177,8 @@ def reconstr(X_t_, params, solver_optimization = solver_default):
     
     x_eps_dict = dict()     #x_eps is created to save info about the reconstruction of nodes
     x_eps_dict['params'] = params_.copy()
-               
+    
+           
     B_ = B.copy()
     for id_node in tqdm(id_trial, **tqdm_par):
         b = B_[:, id_node]
@@ -150,22 +214,11 @@ def reconstr(X_t_, params, solver_optimization = solver_default):
             '''
             x_eps_can = R @ x_eps
         x_eps_dict[id_node] = x_eps_can
-        if completing_on:
-            x_eps_matrix = gnr_alg.completing_coeff_matrix(id_node, x_eps_can, 
-                                                           x_eps_matrix, params_, 
-                                                           params_)
-        else:
-            x_eps_matrix[:, id_node] = x_eps_can
-        adj_matrix = net_dyn.get_adj_from_coeff_matrix(x_eps_matrix, params_, 
-                                                       threshold, False)
         
-        net_dict['A'] = adj_matrix
+        x_eps_matrix[:, id_node] = x_eps_can
         
-        #Update the graph structure using the links reconstructed when probing id_node
-        G = nx.from_numpy_array(net_dict['A'], create_using=nx.Graph)
-        edgelist = list(G.edges(data=True))
-        
-        net_dict['G'].add_edges_from(edgelist)
+        net_dict['sym_node_dyn'][id_node] = retrieve_dyn_sym(x_eps_can, params_, 
+                                                             indep_term = True)
     
     net_dict['info_x_eps'] = x_eps_dict.copy()
     net_dict['x_eps_matrix'] = x_eps_matrix
@@ -217,12 +270,10 @@ def ADM_reconstr(X_t_, params):
     threshold = params_['threshold_connect']
     
     net_dict = dict()          #create greedy algorithm dictionary to save info
-    net_dict['G'] = nx.Graph() #create the empty graph
-    net_dict['G'].add_nodes_from(params_['nodelist']) 
-    net_dict['A'] = nx.to_numpy_array(net_dict['G'])
     
     net_dict['info_x_eps'] = dict()   #info is dictionary with several info saving along the process
-    
+    net_dict['sym_node_dyn'] = dict()
+
     params_['number_of_vertices'] = params_['nodelist'].shape[0]
     if params_['use_canonical']:
         params_ = trg.triage_params(params_)
@@ -260,6 +311,7 @@ def ADM_reconstr(X_t_, params):
     
     x_eps_dict = dict()     #x_eps is created to save info about the reconstruction of nodes
     x_eps_dict['params'] = params_.copy()
+    
                
     B_ = B.copy()
     for id_node in tqdm(id_trial, **tqdm_par):
@@ -288,22 +340,10 @@ def ADM_reconstr(X_t_, params):
             '''
             x_eps_can = R @ x_eps
         #x_eps_dict[id_node] = x_eps_can
-        if completing_on:
-            x_eps_matrix = gnr_alg.completing_coeff_matrix(id_node, x_eps_can, 
-                                                           x_eps_matrix, params_, 
-                                                           params_)
-        else:
-            x_eps_matrix[:, id_node] = x_eps_can
-        adj_matrix = net_dyn.get_adj_from_coeff_matrix(x_eps_matrix, params_, 
-                                                       threshold, False)
         
-        net_dict['A'] = adj_matrix
-        
-        #Update the graph structure using the links reconstructed when probing id_node
-        G = nx.from_numpy_array(net_dict['A'], create_using=nx.Graph)
-        edgelist = list(G.edges(data=True))
-        
-        net_dict['G'].add_edges_from(edgelist)
+        x_eps_matrix[:, id_node] = x_eps_can
+        net_dict['sym_node_dyn'][id_node] = retrieve_dyn_sym(x_eps_can, params_, 
+                                                             indep_term = False)
     
     net_dict['info_x_eps'] = x_eps_dict.copy()
     net_dict['x_eps_matrix'] = x_eps_matrix
