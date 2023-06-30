@@ -75,7 +75,7 @@ def retrieve_dyn_sym(x_eps, ps, indep_term = True):
     num_x = spy_PHI.dot(c_num_spy_x)
     den_x = spy_PHI.dot(c_den_spy_x)
 
-    symb_node_dyn = num_x/den_x
+    symb_node_dyn = spy.simplify(num_x/den_x)
 
     return symb_node_dyn
 
@@ -181,6 +181,7 @@ def reconstr(X_t_, params, solver_optimization = solver_default):
                                                                  solver_default)
             '''
             x_eps = np.linalg.lstsq(THETA, b, rcond=-1)[0]/(np.sqrt(params_['length_of_time_series'])) 
+            x_eps[np.absolute(x_eps) < 0.00001] = 0 
             '''
         except:
             x_eps = np.zeros(L)
@@ -203,8 +204,8 @@ def reconstr(X_t_, params, solver_optimization = solver_default):
         
         x_eps_matrix[:, id_node] = x_eps_can
         
-        net_dict['sym_node_dyn'][id_node] = symb_net_dyn(x_eps_can, params_, 
-                                                         indep_term = True)
+        net_dict['sym_node_dyn'][id_node] = retrieve_dyn_sym(x_eps_can, params_, 
+                                                             indep_term = True)
     
     net_dict['info_x_eps'] = x_eps_dict.copy()
     net_dict['x_eps_matrix'] = x_eps_matrix
@@ -327,11 +328,35 @@ def ADM_reconstr(X_t_, params):
             x_eps_can = R @ x_eps
         
         x_eps_matrix[:, id_node] = x_eps_can
-        net_dict['sym_node_dyn'][id_node] = symb_net_dyn(x_eps_can, params_, 
-                                                         indep_term = False)
+        net_dict['sym_node_dyn'][id_node] = retrieve_dyn_sym(x_eps_can, params_, 
+                                                             indep_term = False)
     
     net_dict['info_x_eps'] = x_eps_dict.copy()
     net_dict['x_eps_matrix'] = x_eps_matrix
     net_dict['x_eps_matrix'][np.absolute(net_dict['x_eps_matrix']) < threshold] = 0.0
                         
     return  net_dict      
+
+
+def uniform_error(net_dict, num_samples = 50, time_eval = 1):
+    
+    Y_t = net_dict['Y_t']
+    t_test = Y_t.shape[0]
+    N = Y_t.shape[1]
+    
+    
+    test_indices = np.linspace(0, t_test-time_eval-1, num_samples, dtype = int)
+    
+    error_matrix = np.zeros(N)
+    for id_test in test_indices:
+        y_0 = Y_t[id_test, :]
+        Z = net_dyn.generate_net_dyn_model(y_0, time_eval, net_dict)
+
+        for id_node in range(N):
+            y_true = Y_t[id_test:id_test + time_eval + 1, id_node]
+            error = tools.RSME(y_true, Z[:, id_node])
+            #print(id_test, id_node, error)
+            error_matrix[id_node] = error_matrix[id_node]\
+                + error/num_samples   
+
+    return error_matrix 

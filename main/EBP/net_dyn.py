@@ -253,7 +253,7 @@ def get_adj_from_coeff_matrix(coefficient_matrix, parameters, threshold_connect,
        
     return A  
 
-def generate_net_dyn_model(y_0, coefficient_matrix, time_length, params):
+def generate_net_dyn_model(y_0, time_length, net_dict):
     '''
     Generate trajectory using the model caracterized by coefficient_matrix
 
@@ -278,29 +278,65 @@ def generate_net_dyn_model(y_0, coefficient_matrix, time_length, params):
         returns Z (which is shorter) that satisfies.
 
     '''
+    params = net_dict['params']
     
     N = params['number_of_vertices']
     x_t = [spy.symbols('x_{}'.format(j)) for j in range(0, N)]
     
-    coeff_matrix_spy = spy.Matrix(coefficient_matrix)
+    Z = np.zeros((time_length+1, N))             
     
-    sym_PHI = spy.Matrix(params['symbolic_PHI'], evaluate=False)
+    Z[0, :] = y_0
     
-    sym_PHI = sym_PHI.T
-    sym_expr = spy.lambdify([x_t], sym_PHI * coeff_matrix_spy, 'numpy')
-    
-    Z = np.zeros((time_length, N))             
-    Z[0, :] = sym_expr(y_0.T)
-    full_time_length = True
-    for j in range(1, time_length):
-        Z[j, :] = sym_expr(Z[j - 1, :].T)
+    for i in range(N):
+        sym_expr = spy.lambdify([x_t], net_dict['sym_node_dyn'][i], 'numpy')
         
-        mask_bounds = (Z < params['lower_bound']) | (Z > params['lower_bound'])\
-            | (np.any(np.isnan(Z)))
+        for j in range(1, time_length + 1):
+            Z[j, i] = sym_expr(Z[j - 1, :].T)
+            
+            mask_bounds = (np.any(np.isnan(Z)))#(Z < params['lower_bound']) | (Z > params['upper_bound'])\| 
+            
+            if np.any(mask_bounds):
+                print('Warning: Trajectory reached infinity!')
+                break
         
-        if np.any(mask_bounds):   
-            full_time_length = False
-            return Z[: j - 1, :]
+    return Z
+
+
+def gen_return_map_model(net_dict):
+    '''
+    Generate reconstructed return map for each node
+
+    Parameters
+    ----------
+    net_dict : dict
+
+    Returns
+    -------
+    Z: numpy array - size: (time_length, number_of_vertices)
+        Reconstructed return map
+
+    '''
+    params = net_dict['params']
     
-    if full_time_length:                   
-        return Z
+    N = params['number_of_vertices']
+    x_t = [spy.symbols('x_{}'.format(j)) for j in range(0, N)]
+    
+    Z = dict()
+    
+    for i in range(N):
+        sym_expr = spy.lambdify([x_t], net_dict['sym_node_dyn'][i], 'numpy')
+        eval_vec = np.zeros(N)
+        Y_t = net_dict['Y_t']
+        interv = np.arange(np.min(Y_t[:, i]), np.max(Y_t[:, i]), 0.001)
+        Z[i] = np.zeros(interv.shape[0])
+        for j in range(interv.shape[0]):
+            eval_vec[i] = interv[j]
+            Z[i][j] = sym_expr(eval_vec.T)
+            
+            mask_bounds = (np.any(np.isnan(Z[i])))#(Z < params['lower_bound']) | (Z > params['upper_bound'])\| 
+            
+            if np.any(mask_bounds):
+                print('Warning: Trajectory reached infinity!')
+                break
+        
+    return Z

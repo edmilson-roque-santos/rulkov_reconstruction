@@ -125,12 +125,13 @@ def compare_script(script_dict):
     A = np.asarray(A)
     degree = np.sum(A, axis=0)
     parameters['adj_matrix'] = A
-    parameters['coupling'] = 0.10
+    parameters['coupling'] = 0.0
     #==========================================================#
     net_dynamics_dict = dict()
     net_dynamics_dict['adj_matrix'] = parameters['adj_matrix'] - degree*np.identity(A.shape[0])
     
     transient_time = 2000
+    test_time = 1000
     
     net_dynamics_dict['f'] = rulkov.rulkov_map
     net_dynamics_dict['h'] = rulkov.diff_coupling_x
@@ -138,11 +139,14 @@ def compare_script(script_dict):
     net_dynamics_dict['coupling'] = parameters['coupling']
     net_dynamics_dict['random_seed'] = parameters['random_seed']
     net_dynamics_dict['transient_time'] = transient_time
-    X_time_series = net_dyn.gen_net_dynamics(script_dict['lgth_time_series'], net_dynamics_dict)  
+    x_time_series = net_dyn.gen_net_dynamics(script_dict['lgth_time_series'], net_dynamics_dict)  
+    
+    X_time_series = x_time_series[:-test_time, :]
     
     #==========================================================#    
     net_dict = dict()
-
+    
+    
     mask_bounds = (X_time_series < -1e5) | (X_time_series > 1e5) | (np.any(np.isnan(X_time_series)))
     if np.any(mask_bounds):
         raise ValueError("Network dynamics does not live in a compact set ")
@@ -188,7 +192,7 @@ def compare_script(script_dict):
         
         #net_dict = net_reconstr.reconstr(X_t, params, solver_optimization)
         net_dict = net_reconstr.ADM_reconstr(X_t, params)
-    
+    net_dict['Y_t'] = x_time_series[-test_time:, :]
     params_ = net_dict['info_x_eps']['params']
     
     return net_dict
@@ -321,14 +325,16 @@ def compare_setup(exp_name, net_name, lgth_endpoints, random_seed = 1,
         out_results_hdf5.close()
         return exp_dictionary
 
-import sympy as spy 
-
 script_dict = dict()
 script_dict['opt_list'] = [True, False, False]
-script_dict['lgth_time_series'] = 500
+script_dict['lgth_time_series'] = 1200
 script_dict['exp_name'] = 'test_reconstr'
 script_dict['net_name'] = 'two_nodes'
 script_dict['id_trial'] = None
 script_dict['random_seed'] = 1
 
 net_dict = compare_script(script_dict)
+error_matrix = net_reconstr.uniform_error(net_dict, num_samples = 50, time_eval = 1)
+lr.fig_comp_rm(net_dict, filename = None)
+lr.fig_return_map(net_dict['Y_t'], filename=None)
+lr.fig_time_series(net_dict['Y_t'])

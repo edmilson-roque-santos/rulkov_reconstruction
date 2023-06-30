@@ -59,11 +59,11 @@ def gen_X_time_series_sample(lgth_time_series, net_name = 'star_graphs_n_4_hub_c
     A = nx.to_numpy_array(G, nodelist = list(range(parameters['number_of_vertices'])))
     A = np.asarray(A)
     degree = np.sum(A, axis=0)
-    parameters['adj_matrix'] = A - degree*np.identity(A.shape[0])
-    parameters['coupling'] = 1e-1
+    parameters['adj_matrix'] = A 
+    parameters['coupling'] = 0.0
     #==========================================================#
     net_dynamics_dict = dict()
-    net_dynamics_dict['adj_matrix'] = parameters['adj_matrix']
+    net_dynamics_dict['adj_matrix'] = parameters['adj_matrix'] - degree*np.identity(A.shape[0])
     
     transient_time = 2000
     
@@ -134,7 +134,7 @@ def plot_return_map(ax, X_time_series):
         id_col = id_col + 1
         
 
-def plot_time_series(ax, X_time_series):
+def plot_time_series(ax, X_time_series, perc_view = 0.8):
     '''
     Plot time series for each node from multivariate time series.
 
@@ -167,7 +167,7 @@ def plot_time_series(ax, X_time_series):
                        '-', 
                        color = col[id_color])
             
-            ax[id_col].set_xlim(0.80*n_iterations[-1], n_iterations[-1])
+            ax[id_col].set_xlim((1 - perc_view)*n_iterations[-1], n_iterations[-1])
             
             id_color = id_color + 1
             
@@ -267,7 +267,52 @@ def fig_time_series(X_time_series, filename=None):
         plt.tight_layout()
         plt.savefig(filename+".pdf", format = 'pdf')
 
+'''
+def fig_comp_ts(net_dict, filename = None):
+    #INCORRECT! One cannot expect to generate a long time series from the 
+    reconstructed model.
+        
+    Y_t = net_dict['Y_t']
+    t_test = Y_t.shape[0]
+    
+    y_0 = Y_t[0, :]
+    Z = net_dyn.generate_net_dyn_model(y_0, t_test, net_dict)
+    
+    fig, ax = plt.subplots(1, 2, figsize = (10, 3), dpi=300)
+ 
+    plot_time_series(ax, Z)
+    if filename == None:
+        plt.tight_layout()
 
+        plt.show()
+    else:
+        plt.tight_layout()
+        plt.savefig(filename+".pdf", format = 'pdf')
+'''
+def fig_comp_rm(net_dict, filename = None):
+    
+    params = net_dict['params']
+    Y_t = net_dict['Y_t']
+    
+    Z = net_dyn.gen_return_map_model(net_dict)
+    
+    fig, ax = plt.subplots(1, 2, figsize = (10, 3), dpi=300)
+ 
+    plot_return_map(ax, Y_t)
+    
+    id_node = 0
+    
+    interv = np.arange(np.min(Y_t[:, id_node]), np.max(Y_t[:, id_node]), 0.001)
+    ax[0].plot(interv, Z[id_node]-2.84, 'ro', markersize=2)
+    
+    if filename == None:
+        plt.tight_layout()
+
+        plt.show()
+    else:
+        plt.tight_layout()
+        plt.savefig(filename+".pdf", format = 'pdf')    
+    
 #=============================================================================#
 #Figure scripts
 #=============================================================================#

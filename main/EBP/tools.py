@@ -14,6 +14,7 @@ from numpy.random import default_rng
 import os 
 import re
 from scipy import stats
+from sklearn.metrics import mean_squared_error
 import sympy as spy
 from sympy.parsing.sympy_parser import parse_expr
 
@@ -324,6 +325,10 @@ def FP_FN_rel_error(node, Adj_row, hat_Adj_row, add_weight = False):
         
     
     return rel_error
+
+def RSME(y_true, y_pred):
+    
+    return mean_squared_error(y_true, y_pred, squared=False)
 
 #========================================================#
 #Functions saving data
