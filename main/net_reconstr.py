@@ -178,11 +178,6 @@ def reconstr(X_t_, params, solver_optimization = solver_default):
     net_dict['PHI.T PHI'] = PHI.T @ PHI 
     net_dict['params'] = params_.copy()   #for reference we save the params used
     
-    if params_['use_orthonormal']:
-        from scipy.linalg import block_diag
-        
-        R = block_diag(params_['R'], params_['R'][1:, 1:])
-    
     L = int(2*params_['L'] - 1)
     params_['indices_cluster'] = np.arange(0, L, dtype = int)
     
@@ -202,40 +197,16 @@ def reconstr(X_t_, params, solver_optimization = solver_default):
         b = B_[:, id_node]
         try:
             THETA = np.hstack((PHI, -1*np.diag(b) @ PHI[:, 1:]))
-            
-            if params_['use_orthonormal']:
-                #THETA, b_orth = polb.implicit_PHI(id_node, B, PHI, params_)
-                x_eps, num_nonzeros_vec = optimizer.l_1_optimization(b, THETA, 
-                                                                     params_['noisy_measurement'], 
-                                                                     params_,
-                                                                     solver_default)
-            if params_['use_canonical']:
-                
-            
-                x_eps, num_nonzeros_vec = optimizer.l_1_optimization(b, THETA, 
-                                                                     params_['noisy_measurement'], 
-                                                                     params_,
-                                                                     solver_default)
-            '''
-            x_eps = np.linalg.lstsq(THETA, b, rcond=-1)[0]/(np.sqrt(params_['length_of_time_series'])) 
-            '''
+            x_eps, num_nonzeros_vec = optimizer.l_1_optimization(b, THETA, 
+                                                                 params_['noisy_measurement'], 
+                                                                 params_,
+                                                                 solver_default)            
         except:
             x_eps = np.zeros(L)
             if VERBOSE:
                 print('Solver failed: node = ', id_node)
-                
-        if params_['use_canonical']:
-            x_eps_can = x_eps.copy()                    
-        if params_['use_orthonormal']:
-            '''
-            x_eps_temp = np.zeros(x_eps.shape[0] + 1)
-            x_eps_temp[:params_['L']] = x_eps[:params_['L']]
-            x_eps_temp[params_['L']] = 1
-            x_eps_temp[params_['L'] + 1:] = x_eps[params_['L']:]
-            x_eps_can_ = R @ x_eps_temp
-            x_eps_can = np.delete(x_eps_can_, params_['L'])
-            '''
-            x_eps_can = x_eps.copy() # R @ x_eps
+
+        x_eps_can = x_eps.copy()                            
         x_eps_dict[id_node] = x_eps_can
         
         x_eps_matrix[:, id_node] = x_eps_can
@@ -317,11 +288,6 @@ def ADM_reconstr(X_t_, params):
     net_dict['PHI.T PHI'] = PHI.T @ PHI 
     net_dict['params'] = params_.copy()   #for reference we save the params used
     
-    if params_['use_orthonormal']:
-        from scipy.linalg import block_diag
-        
-        R = block_diag(params_['R'], params_['R'][1:, 1:])
-    
     L = int(2*params_['L'])
     params_['indices_cluster'] = np.arange(0, L, dtype = int)
     
@@ -339,32 +305,20 @@ def ADM_reconstr(X_t_, params):
     B_ = B.copy()
     for id_node in tqdm(id_trial, **tqdm_par):
         b = B_[:, id_node]
-        #try:
-        THETA = np.hstack((PHI, np.diag(b) @ PHI))
-
-            
-        sparsity_of_vector, pareto_front, matrix_sparse_vectors = ADM.ADM_pareto(THETA, b, params_)
-        x_eps_dict[id_node] = matrix_sparse_vectors
-        x_eps = ADM.pareto_test(sparsity_of_vector, pareto_front, matrix_sparse_vectors)
-        '''
+        try:
+            THETA = np.hstack((PHI, np.diag(b) @ PHI))
+    
+                
+            sparsity_of_vector, pareto_front, matrix_sparse_vectors = ADM.ADM_pareto(THETA, b, params_)
+            x_eps_dict[id_node] = matrix_sparse_vectors
+            x_eps = ADM.pareto_test(sparsity_of_vector, pareto_front, matrix_sparse_vectors)
+        
         except:
             x_eps = np.zeros(L)
             if VERBOSE:
                 print('Solver failed: node = ', id_node)
-        '''       
-        if params_['use_canonical']:
-            x_eps_can = x_eps.copy()                    
-        if params_['use_orthonormal']:
-            '''
-            x_eps_temp = np.zeros(x_eps.shape[0] + 1)
-            x_eps_temp[:params_['L']] = x_eps[:params_['L']]
-            x_eps_temp[params_['L']] = 1
-            x_eps_temp[params_['L'] + 1:] = x_eps[params_['L']:]
-            x_eps_can_ = R @ x_eps_temp
-            x_eps_can = np.delete(x_eps_can_, params_['L'])
-            '''
-            x_eps_can = x_eps.copy()#  R @ x_eps
         
+        x_eps_can = x_eps.copy()                                    
         x_eps_matrix[:, id_node] = x_eps_can
         net_dict['sym_node_dyn'][id_node] = retrieve_dyn_sym(x_eps_can, params_, 
                                                              indep_term = False)
