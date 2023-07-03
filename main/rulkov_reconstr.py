@@ -189,12 +189,11 @@ def compare_script(script_dict):
         if script_dict['id_trial'] != None:
             params['id_trial'] = script_dict['id_trial']
         
-        solver_optimization = cp.CVXOPT#ECOS#
-        
-        #net_dict = net_reconstr.reconstr(X_t, params, solver_optimization)
         net_dict = net_reconstr.ADM_reconstr(X_t, params)
+        #solver_optimization = cp.ECOS#CVXOPT
+        #net_dict = net_reconstr.reconstr(X_t, params, solver_optimization)
+        
     net_dict['Y_t'] = x_time_series[-test_time:, :]
-    params_ = net_dict['info_x_eps']['params']
     
     return net_dict
     
@@ -337,9 +336,9 @@ script_dict['random_seed'] = 1
 net_dict = compare_script(script_dict)
 error_matrix = net_reconstr.uniform_error(net_dict, num_samples = 50, time_eval = 1)
 
-lr.fig_return_map(net_dict['Y_t'], filename=None)
-lr.fig_time_series(net_dict['Y_t'])
+#lr.fig_return_map(net_dict['Y_t'], filename=None)
+#lr.fig_time_series(net_dict['Y_t'])
 
 folder = 'Figures/'
-filename = folder+'Fig_1_v0'
+filename = None#folder+'Fig_1_v0'
 lr.Fig_1(net_dict, script_dict['net_name'], id_node = 0, filename = filename )

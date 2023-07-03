@@ -197,10 +197,12 @@ def reconstr(X_t_, params, solver_optimization = solver_default):
         b = B_[:, id_node]
         try:
             THETA = np.hstack((PHI, -1*np.diag(b) @ PHI[:, 1:]))
+            
             x_eps, num_nonzeros_vec = optimizer.l_1_optimization(b, THETA, 
                                                                  params_['noisy_measurement'], 
                                                                  params_,
                                                                  solver_default)            
+            
         except:
             x_eps = np.zeros(L)
             if VERBOSE:
