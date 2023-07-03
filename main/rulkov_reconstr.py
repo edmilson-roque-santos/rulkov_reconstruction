@@ -112,7 +112,7 @@ def compare_script(script_dict):
     parameters['use_canonical'] = script_dict['opt_list'][0]
     parameters['normalize_cols'] = script_dict['opt_list'][1]
     parameters['use_orthonormal'] = script_dict['opt_list'][2]
-    parameters['length_of_time_series'] = script_dict['lgth_time_series']
+    
     
     try:
         G = script_dict['G']
@@ -125,13 +125,14 @@ def compare_script(script_dict):
     A = np.asarray(A)
     degree = np.sum(A, axis=0)
     parameters['adj_matrix'] = A
-    parameters['coupling'] = 0.0
+    parameters['coupling'] = 0.01
     #==========================================================#
     net_dynamics_dict = dict()
     net_dynamics_dict['adj_matrix'] = parameters['adj_matrix'] - degree*np.identity(A.shape[0])
     
     transient_time = 2000
-    test_time = 1000
+    test_time = 2000
+    parameters['length_of_time_series'] = script_dict['lgth_time_series']-test_time
     
     net_dynamics_dict['f'] = rulkov.rulkov_map
     net_dynamics_dict['h'] = rulkov.diff_coupling_x
@@ -188,7 +189,7 @@ def compare_script(script_dict):
         if script_dict['id_trial'] != None:
             params['id_trial'] = script_dict['id_trial']
         
-        solver_optimization = cp.ECOS#CVXOPT#
+        solver_optimization = cp.CVXOPT#ECOS#
         
         #net_dict = net_reconstr.reconstr(X_t, params, solver_optimization)
         net_dict = net_reconstr.ADM_reconstr(X_t, params)
@@ -327,7 +328,7 @@ def compare_setup(exp_name, net_name, lgth_endpoints, random_seed = 1,
 
 script_dict = dict()
 script_dict['opt_list'] = [True, False, False]
-script_dict['lgth_time_series'] = 1200
+script_dict['lgth_time_series'] = 2200
 script_dict['exp_name'] = 'test_reconstr'
 script_dict['net_name'] = 'two_nodes'
 script_dict['id_trial'] = None
@@ -335,6 +336,10 @@ script_dict['random_seed'] = 1
 
 net_dict = compare_script(script_dict)
 error_matrix = net_reconstr.uniform_error(net_dict, num_samples = 50, time_eval = 1)
-lr.fig_comp_rm(net_dict, filename = None)
+
 lr.fig_return_map(net_dict['Y_t'], filename=None)
 lr.fig_time_series(net_dict['Y_t'])
+
+folder = 'Figures/'
+filename = folder+'Fig_1_v0'
+lr.Fig_1(net_dict, script_dict['net_name'], id_node = 0, filename = filename )

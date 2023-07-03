@@ -23,16 +23,16 @@ from EBP.modules.rulkov import rulkov
 from EBP import tools, net_dyn
 
 # Set plotting parameters
-params_plot = {'axes.labelsize': 15,
-              'axes.titlesize': 15,
+params_plot = {'axes.labelsize': 16,
+              'axes.titlesize': 16,
               'axes.linewidth': 1.0,
               'axes.xmargin':0, 
               'axes.ymargin': 0,
-              'legend.fontsize': 18,
-              'xtick.labelsize': 16,
-              'ytick.labelsize': 16,
+              'legend.fontsize': 16,
+              'xtick.labelsize': 15,
+              'ytick.labelsize': 15,
               'figure.figsize': (8, 6),
-              'figure.titlesize': 18,
+              'figure.titlesize': 20,
               'font.serif': 'Computer Modern Serif',
               'mathtext.fontset': 'cm',
               'axes.linewidth': 1.0
@@ -134,7 +134,7 @@ def plot_return_map(ax, X_time_series):
         id_col = id_col + 1
         
 
-def plot_time_series(ax, X_time_series, perc_view = 0.8):
+def plot_time_series(ax, X_time_series, perc_view = 0.8, sharex = True):
     '''
     Plot time series for each node from multivariate time series.
 
@@ -173,7 +173,9 @@ def plot_time_series(ax, X_time_series, perc_view = 0.8):
             
         if id_col == 0:
             ax[id_col].set_ylabel(r'$x(t)$')
-            ax[id_col].set_xlabel(r'$t$')
+            
+            if not sharex:
+                ax[id_col].set_xlabel(r'$t$')
         else:
             ax[id_col].set_ylabel(r'$y(t)$')
             ax[id_col].set_xlabel(r'$t$')
@@ -236,7 +238,89 @@ def plot_kernel_density(ax, X_time_series):
         id_col = id_col + 1
         
     return ax
+
+def plot_isolated_comp(ax, Y_t, z_t, id_node, id_x = 0):
+    colors = ['silver', 'midnightblue', 'gray']
     
+    if id_x == 0:
+        ax.set_ylabel(r'$f^{x}(u, v)$')
+        ax.set_xlabel(r'$u$')
+    else:
+        ax.set_ylabel(r'$f^{y}(u, v)$')
+        ax.set_xlabel(r'$v$')   
+    
+    interv = np.arange(np.min(Y_t[:, id_node]), np.max(Y_t[:, id_node]), 0.001)
+    r_t = np.zeros(2*interv.shape[0])
+    r_t[id_x::2] = interv
+    r_t_ = rulkov.rulkov_map(r_t)
+    
+    ax.plot(interv, r_t_[id_x::2], '-', label = r'True',
+            linewidth = 5.2, 
+            color = colors[0])
+    ax.plot(interv, z_t, '--', label = r'Reconstructed',
+            color = colors[1])
+    ax.set_xlim(np.min(np.min(Y_t[:, id_node])), np.max(Y_t[:, id_node]))
+    ax.set_ylim(np.min(r_t_[id_x::2]), np.max(r_t_[id_x::2]))
+
+def ax_plot_graph(ax, net_name, plot_net_alone=False):
+    '''
+    Plot the ring graph
+
+    Parameters
+    ----------
+    ax : Matplotlib Axes object
+        Draw the graph in the specified Matplotlib axes.
+    plot_net_alone : boolean, optional
+        To plot the network itself outside an environment. The default is False.
+
+    Returns
+    -------
+    None.
+
+    '''
+    colors = ['darkgrey', 'orange', 'darkviolet', 'darkslategrey', 'silver']
+
+    G_true = nx.read_edgelist("network_structure/{}.txt".format(net_name),
+                        nodetype = int, create_using = nx.Graph)
+    #pos_true = nx.circular_layout(G_true)
+    pos_true = nx.bipartite_layout(G_true, nodes = [0])
+    nx.draw_networkx_nodes(G_true, pos = pos_true,
+                           ax = ax, node_color = colors[3], 
+                           linewidths= 2.0,
+                           node_size = 550,
+                           alpha = 1.0)
+    nx.draw_networkx_nodes(G_true, pos = pos_true,
+                           node_color = colors[0], 
+                           node_size = 500,
+                           ax = ax,
+                           alpha = 1.0)
+    
+    nx.draw_networkx_edges(G_true,pos = pos_true, 
+                           ax = ax,
+                           edgelist = list(G_true.edges()), 
+                           edge_color = colors[4],
+                           arrows = True,
+                           arrowsize = 7,
+                           width = 1.0,
+                           alpha = 1.0)
+    ax.margins(0.6)
+    ax.axis("off")
+    if plot_net_alone:
+        ax.set_title('{}'.format('Original Network'))
+
+#=============================================================================#
+#Figure scripts
+#=============================================================================#
+def coupled_rulkov_figs_supp():
+    X_t = gen_X_time_series_sample(7001)
+    folder='Fig_supp'
+    filename = folder+'/'+'return_map'
+    fig_return_map(X_t[2000:, :],filename)
+    
+    filename = folder+'/'+'time_series'
+    fig_time_series(X_t[2000:, :],filename)        
+
+
 def fig_return_map(X_time_series, filename=None):
    
     fig, ax = plt.subplots(2, 2, figsize = (8, 5), dpi=300)
@@ -289,21 +373,57 @@ def fig_comp_ts(net_dict, filename = None):
         plt.tight_layout()
         plt.savefig(filename+".pdf", format = 'pdf')
 '''
-def fig_comp_rm(net_dict, filename = None):
+
+def Fig_1(net_dict, net_name, id_node = 0, filename = None):
+
+    fig_ = plt.figure(layout='constrained', 
+                      figsize = (10, 6), 
+                      dpi = 300)
+    subfigs = fig_.subfigures(1, 2)
     
-    params = net_dict['params']
+    fig = subfigs[0]
+    
+    subfigsnest = fig.subfigures(2, 1, hspace = 0.01, height_ratios=[1, 2.5])
+    
+    ax = subfigsnest[0].subplots(1, 1)
+    ax_plot_graph(ax, net_name)
+    subfigsnest[0].suptitle(r'a)', x=0.0, ha='left')
+
+    ax1 = subfigsnest[1].subplots(2, 1, sharex=True)
+    plot_time_series(ax1, net_dict['Y_t'], perc_view=1.0)
+    subfigsnest[1].suptitle(r'b)', x=0.0, ha='left')
+    
+    Y_t = net_dict['Y_t']
+        
+    Z = net_dyn.gen_isolated_map_model(net_dict)
+    
+    fig = subfigs[1]
+    (ax3, ax4) = fig.subplots(2, 1)
+    fig.suptitle(r'c)', x=0.0, ha='left')
+    
+    z_t = Z[id_node]
+    plot_isolated_comp(ax3, Y_t, z_t, id_node, id_x = 0)
+    
+    z_t = Z[id_node+1]
+    plot_isolated_comp(ax4, Y_t, z_t, id_node+1, id_x = 1)
+    ax4.legend(loc=0)
+    
+    
+    if filename == None:
+        #plt.tight_layout()
+
+        plt.show()
+    else:
+        #plt.tight_layout()
+        plt.savefig(filename+".pdf", format = 'pdf')    
+
+def fig_loc_eval(net_dict, id_node = 0, filename = None):
+
     Y_t = net_dict['Y_t']
     
-    Z = net_dyn.gen_return_map_model(net_dict)
+    fig, ax = plt.subplots(figsize = (10, 3), dpi=300)
     
-    fig, ax = plt.subplots(1, 2, figsize = (10, 3), dpi=300)
- 
-    plot_return_map(ax, Y_t)
-    
-    id_node = 0
-    
-    interv = np.arange(np.min(Y_t[:, id_node]), np.max(Y_t[:, id_node]), 0.001)
-    ax[0].plot(interv, Z[id_node]-2.84, 'ro', markersize=2)
+    ax.plot(Y_t[:, id_node+1], Y_t[:, id_node], '-')
     
     if filename == None:
         plt.tight_layout()
@@ -311,16 +431,5 @@ def fig_comp_rm(net_dict, filename = None):
         plt.show()
     else:
         plt.tight_layout()
-        plt.savefig(filename+".pdf", format = 'pdf')    
+        plt.savefig(filename+".pdf", format = 'pdf') 
     
-#=============================================================================#
-#Figure scripts
-#=============================================================================#
-def coupled_rulkov_figs_supp():
-    X_t = gen_X_time_series_sample(7001)
-    folder='Fig_supp'
-    filename = folder+'/'+'return_map'
-    fig_return_map(X_t[2000:, :],filename)
-    
-    filename = folder+'/'+'time_series'
-    fig_time_series(X_t[2000:, :],filename)        

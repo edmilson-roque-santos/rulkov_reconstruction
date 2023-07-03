@@ -302,7 +302,7 @@ def generate_net_dyn_model(y_0, time_length, net_dict):
     return Z
 
 
-def gen_return_map_model(net_dict):
+def gen_isolated_map_model(net_dict):
     '''
     Generate reconstructed return map for each node
 

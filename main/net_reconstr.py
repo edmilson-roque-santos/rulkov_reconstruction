@@ -31,7 +31,19 @@ tqdm_par = {
 
 
 def symb_net_dyn(params):
+    '''
+    Express the network dynamics in symbolic language.
 
+    Parameters
+    ----------
+    params : dict
+
+    Returns
+    -------
+    net_dyn_exp : sympy expression
+        Network dynamics in symbolic language.
+
+    '''
     net_dynamics_dict = dict()
     net_dynamics_dict['adj_matrix'] = params['adj_matrix']
     degree = np.sum(params['adj_matrix'], axis=0)
@@ -45,9 +57,29 @@ def symb_net_dyn(params):
     
     return net_dyn_exp
 
-def retrieve_dyn_sym(x_eps, ps, indep_term = True):
-    L = ps['L']
-    symbolic_PHI = ps['symbolic_PHI']
+def retrieve_dyn_sym(x_eps, params, indep_term = True):
+    '''
+    Build the reconstruction model from the coefficient vector.
+
+    Parameters
+    ----------
+    x_eps : numpy array
+        Coefficient vector reconstruction from minimization problem.
+    params : dict
+        
+    indep_term : boolean, optional
+        To include the independent term or nor in the coefficient vector.
+        The default is True.
+
+    Returns
+    -------
+    symb_node_dyn : sympy expression
+        Reconstructed model in symbolic language.
+
+    '''
+    
+    L = params['L']
+    symbolic_PHI = params['symbolic_PHI']
     spy_PHI = spy.Matrix(symbolic_PHI)
     
     sv = x_eps.copy()
@@ -66,10 +98,10 @@ def retrieve_dyn_sym(x_eps, ps, indep_term = True):
     else:               
         c_num_x = sv[:L]
         c_den_x = np.zeros(L)
-        c_den_x = sv[L:]
+        c_den_x = -1*sv[L:]
     
     c_num_spy_x = spy.Matrix(c_num_x).n(roud)
-    c_den_spy_x = spy.Matrix(-1.0*c_den_x).n(roud)
+    c_den_spy_x = spy.Matrix(c_den_x).n(roud)
 
     #calculate the numerator and denominator using symbolic representation
     num_x = spy_PHI.dot(c_num_spy_x)
@@ -169,19 +201,23 @@ def reconstr(X_t_, params, solver_optimization = solver_default):
     for id_node in tqdm(id_trial, **tqdm_par):
         b = B_[:, id_node]
         try:
-            if params_['use_orthonormal']:
-                THETA = polb.implicit_PHI(id_node, B, PHI, params_)
-                
-            if params_['use_canonical']:
-                THETA = np.hstack((PHI, np.diag(b) @ PHI[:, 1:]))
+            THETA = np.hstack((PHI, -1*np.diag(b) @ PHI[:, 1:]))
             
-            x_eps, num_nonzeros_vec = optimizer.l_1_optimization(b, THETA, 
-                                                                 params_['noisy_measurement'], 
-                                                                 params_,
-                                                                 solver_default)
+            if params_['use_orthonormal']:
+                #THETA, b_orth = polb.implicit_PHI(id_node, B, PHI, params_)
+                x_eps, num_nonzeros_vec = optimizer.l_1_optimization(b, THETA, 
+                                                                     params_['noisy_measurement'], 
+                                                                     params_,
+                                                                     solver_default)
+            if params_['use_canonical']:
+                
+            
+                x_eps, num_nonzeros_vec = optimizer.l_1_optimization(b, THETA, 
+                                                                     params_['noisy_measurement'], 
+                                                                     params_,
+                                                                     solver_default)
             '''
             x_eps = np.linalg.lstsq(THETA, b, rcond=-1)[0]/(np.sqrt(params_['length_of_time_series'])) 
-            x_eps[np.absolute(x_eps) < 0.00001] = 0 
             '''
         except:
             x_eps = np.zeros(L)
@@ -199,7 +235,7 @@ def reconstr(X_t_, params, solver_optimization = solver_default):
             x_eps_can_ = R @ x_eps_temp
             x_eps_can = np.delete(x_eps_can_, params_['L'])
             '''
-            x_eps_can = R @ x_eps
+            x_eps_can = x_eps.copy() # R @ x_eps
         x_eps_dict[id_node] = x_eps_can
         
         x_eps_matrix[:, id_node] = x_eps_can
@@ -303,17 +339,19 @@ def ADM_reconstr(X_t_, params):
     B_ = B.copy()
     for id_node in tqdm(id_trial, **tqdm_par):
         b = B_[:, id_node]
-        try:
-            if params_['use_canonical']:
-                sparsity_of_vector, pareto_front, matrix_sparse_vectors = ADM.ADM_pareto(PHI, b, params_)
-                x_eps_dict[id_node] = matrix_sparse_vectors
-                x_eps = ADM.pareto_test(sparsity_of_vector, pareto_front, matrix_sparse_vectors)
-                
+        #try:
+        THETA = np.hstack((PHI, np.diag(b) @ PHI))
+
+            
+        sparsity_of_vector, pareto_front, matrix_sparse_vectors = ADM.ADM_pareto(THETA, b, params_)
+        x_eps_dict[id_node] = matrix_sparse_vectors
+        x_eps = ADM.pareto_test(sparsity_of_vector, pareto_front, matrix_sparse_vectors)
+        '''
         except:
             x_eps = np.zeros(L)
             if VERBOSE:
                 print('Solver failed: node = ', id_node)
-                
+        '''       
         if params_['use_canonical']:
             x_eps_can = x_eps.copy()                    
         if params_['use_orthonormal']:
@@ -325,7 +363,7 @@ def ADM_reconstr(X_t_, params):
             x_eps_can_ = R @ x_eps_temp
             x_eps_can = np.delete(x_eps_can_, params_['L'])
             '''
-            x_eps_can = R @ x_eps
+            x_eps_can = x_eps.copy()#  R @ x_eps
         
         x_eps_matrix[:, id_node] = x_eps_can
         net_dict['sym_node_dyn'][id_node] = retrieve_dyn_sym(x_eps_can, params_, 
@@ -339,7 +377,26 @@ def ADM_reconstr(X_t_, params):
 
 
 def uniform_error(net_dict, num_samples = 50, time_eval = 1):
-    
+    '''
+    Calculate the error in the reconstructed model. The error is expressed
+    as an average over equally spaced points in the trajectory of the network
+    dynamics.
+
+    Parameters
+    ----------
+    net_dict : dict
+        recontruction dictionary data.
+    num_samples : int, optional
+        Number of points to evaluate the error. The default is 50.
+    time_eval : int, optional
+        Number of iterations ahead to iterate the reconstructed model. The default is 1.
+
+    Returns
+    -------
+    error_matrix : numpy array
+        Error for each node in the network.
+
+    '''
     Y_t = net_dict['Y_t']
     t_test = Y_t.shape[0]
     N = Y_t.shape[1]
@@ -355,8 +412,8 @@ def uniform_error(net_dict, num_samples = 50, time_eval = 1):
         for id_node in range(N):
             y_true = Y_t[id_test:id_test + time_eval + 1, id_node]
             error = tools.RSME(y_true, Z[:, id_node])
-            #print(id_test, id_node, error)
+            
             error_matrix[id_node] = error_matrix[id_node]\
-                + error/num_samples   
-
-    return error_matrix 
+                + error**2/num_samples   
+    
+    return np.sqrt(error_matrix)

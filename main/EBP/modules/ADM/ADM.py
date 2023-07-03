@@ -167,7 +167,7 @@ def ADM_initial_guess_variation(kernel_matrix, lambda_parameter,
     
     return sparse_vector, number_of_terms, ind_nonzero_coefficients
     
-def ADM_pareto(PHI, X_t_dot, params, number_of_points = 30, lambda_0 = 1e-8):
+def ADM_pareto(PHI_implicit_method, X_t_dot, params, number_of_points = 30, lambda_0 = 1e-8):
     '''
     Pareto front used in 10.1109/TMBMC.2016.2633265 
 
@@ -195,15 +195,15 @@ def ADM_pareto(PHI, X_t_dot, params, number_of_points = 30, lambda_0 = 1e-8):
 
     '''
     
-    number_of_coefficients = len(PHI[0, :])
+    number_of_coefficients = len(PHI_implicit_method[0, :])
     
     sparsity_of_vector = np.zeros((number_of_points, 2))
     pareto_front = np.zeros((number_of_points,2))
-    matrix_sparse_vectors = np.zeros((number_of_points, 2*number_of_coefficients))
+    matrix_sparse_vectors = np.zeros((number_of_points, number_of_coefficients))
 
     
-    PHI_implicit_method = np.hstack((PHI, np.diag(X_t_dot) @ PHI))
-    sparse_vector_dimension = 2*number_of_coefficients
+    #PHI_implicit_method = np.hstack((PHI, np.diag(X_t_dot) @ PHI))
+    sparse_vector_dimension = number_of_coefficients
 
     ker_orthonormal_basis_PHI = null_space(PHI_implicit_method)
     #print(ker_orthonormal_basis_PHI.shape)

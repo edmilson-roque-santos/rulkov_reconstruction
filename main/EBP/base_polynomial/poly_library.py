@@ -1071,11 +1071,11 @@ def implicit_PHI(node, B, PHI, params):
                      'numpy')
     
     #Evaluate expression f at X_t as first column of library matrix
-    b = f(B.T)
+    b = B[:, node]#f(B.T)
     
-    THETA = np.hstack((PHI,np.diag(b) @ PHI[:, 1:])) 
+    THETA = np.hstack((PHI, -1*np.diag(b) @ PHI[:, 1:])) 
     
-    return THETA
+    return THETA, b
 
 
 
