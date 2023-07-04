@@ -93,7 +93,7 @@ def retrieve_dyn_sym(x_eps, params, indep_term = True):
         c_num_x = sv[:L]
         c_den_x = np.zeros(L)
         c_den_x[0] = 1
-        c_den_x[1:] = sv[L:]
+        c_den_x[1:] = sv[L+1:]
         
     else:               
         c_num_x = sv[:L]
@@ -307,23 +307,33 @@ def ADM_reconstr(X_t_, params):
     B_ = B.copy()
     for id_node in tqdm(id_trial, **tqdm_par):
         b = B_[:, id_node]
-        try:
+        
+        if np.mod(id_node, 2):
+            x_eps = np.linalg.lstsq(PHI, b, rcond=-1)[0]/(np.sqrt(params_['length_of_time_series']))
+                                            
+            x_eps_matrix[:params_['L'], id_node] = x_eps
+            x_eps_can = x_eps_matrix[:, id_node].copy()    
+            net_dict['sym_node_dyn'][id_node] = retrieve_dyn_sym(x_eps_can, params_, 
+                                                                 indep_term = True)
+        else:
             THETA = np.hstack((PHI, np.diag(b) @ PHI))
-    
-                
-            sparsity_of_vector, pareto_front, matrix_sparse_vectors = ADM.ADM_pareto(THETA, b, params_)
+            sparsity_of_vector, pareto_front, matrix_sparse_vectors = ADM.ADM_pareto(THETA, params_)
             x_eps_dict[id_node] = matrix_sparse_vectors
             x_eps = ADM.pareto_test(sparsity_of_vector, pareto_front, matrix_sparse_vectors)
-        
+            x_eps_can = x_eps.copy()                                    
+            x_eps_matrix[:, id_node] = x_eps_can
+            net_dict['sym_node_dyn'][id_node] = retrieve_dyn_sym(x_eps_can, params_, 
+                                                                 indep_term = False)
+        '''
+        try:
+            
         except:
             x_eps = np.zeros(L)
             if VERBOSE:
                 print('Solver failed: node = ', id_node)
+        '''  
         
-        x_eps_can = x_eps.copy()                                    
-        x_eps_matrix[:, id_node] = x_eps_can
-        net_dict['sym_node_dyn'][id_node] = retrieve_dyn_sym(x_eps_can, params_, 
-                                                             indep_term = False)
+        
     
     net_dict['info_x_eps'] = x_eps_dict.copy()
     net_dict['x_eps_matrix'] = x_eps_matrix

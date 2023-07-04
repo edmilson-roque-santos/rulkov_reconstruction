@@ -171,7 +171,7 @@ def compare_script(script_dict):
             
             output_orthnormfunc_filename = out_dir_ortho_folder
         
-            cluster_list = [np.array([0, 2]), np.array([1, 3])]
+            cluster_list = script_dict['cluster_list']
             
             params['cluster_list'] = cluster_list
             
@@ -186,7 +186,7 @@ def compare_script(script_dict):
         
         params['threshold_connect'] = 1e-8
         
-        if script_dict['id_trial'] != None:
+        if script_dict['id_trial'] is not None:
             params['id_trial'] = script_dict['id_trial']
         
         net_dict = net_reconstr.ADM_reconstr(X_t, params)
@@ -327,10 +327,11 @@ def compare_setup(exp_name, net_name, lgth_endpoints, random_seed = 1,
 
 script_dict = dict()
 script_dict['opt_list'] = [True, False, False]
-script_dict['lgth_time_series'] = 2200
-script_dict['exp_name'] = 'test_reconstr'
-script_dict['net_name'] = 'two_nodes'
-script_dict['id_trial'] = None
+script_dict['lgth_time_series'] = 2500
+script_dict['exp_name'] = 'reconstr_n_varying'
+script_dict['net_name'] = 'star_graphs_n_4_hub_coupled'
+script_dict['cluster_list'] = [np.arange(0, 20, 2), np.arange(1, 20, 2)]
+script_dict['id_trial'] = None#np.arange(0, 20, 2)
 script_dict['random_seed'] = 1
 
 net_dict = compare_script(script_dict)
