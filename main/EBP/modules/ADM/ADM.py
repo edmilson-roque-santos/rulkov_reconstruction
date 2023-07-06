@@ -202,7 +202,7 @@ def ADM_pareto(PHI_implicit_method, params, number_of_points = 30, lambda_0 = 1e
     sparse_vector_dimension = number_of_coefficients
 
     ker_orthonormal_basis_PHI = null_space(PHI_implicit_method)
-    
+    print(ker_orthonormal_basis_PHI.shape)
     # Vary lambda by factor of 2 until we hit the point where all coefficients are forced to zero.
     lambda_parameter = lambda_0
     for counter in range(number_of_points):

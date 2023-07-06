@@ -308,6 +308,187 @@ def ax_plot_graph(ax, net_name, plot_net_alone=False):
     if plot_net_alone:
         ax.set_title('{}'.format('Original Network'))
 
+
+def compare_basis(exp_dictionary, net_name):
+    '''
+    Given a experiment dict, it calculates the performance of the reconstruction.
+
+    Parameters
+    ----------
+    exp_dictionary : dict
+        Output results dictionary.
+    net_name : str
+        Filename.
+
+    Returns
+    -------
+    lgth_vector : numpy array 
+        Array with length of time series vector.
+    FP_comparison : numpy array
+        False positive proportion for each length of time series.
+    FN_comparison : numpy array
+        False negative proportion for each length of time series.
+    d_matrix : TYPE
+        DESCRIPTION.
+
+    '''
+    
+    exp_vec = list(exp_dictionary['exp_params'].keys())
+    lgth_endpoints = exp_dictionary['lgth_endpoints']
+    G = nx.read_edgelist("network_structure/{}.txt".format(net_name),
+                        nodetype = int, create_using = nx.Graph)
+    
+    N = 2*len(G)
+    
+    lgth_vector = np.arange(lgth_endpoints[0], lgth_endpoints[1],
+                                      lgth_endpoints[2], dtype = int)
+    
+    dim_comparison = np.zeros((len(exp_vec), lgth_vector.shape[0], N))
+
+    for id_exp in range(len(exp_vec)):
+        for id_key in range(len(lgth_vector)):
+            key = lgth_vector[id_key]
+
+            for id_node in range(N):
+                dim_comparison[id_exp, id_key, id_node] = exp_dictionary[exp_vec[id_exp]][key][id_node]
+                
+    return lgth_vector, dim_comparison
+
+def plot_hist_ker(ax, lgth_vector, dim_comparison):
+    col = mpl.color_sequences['tab20c']
+    nseeds, num_exp, num_lgth_vec, N = dim_comparison.shape
+    id_vec = np.arange(0, N, 2, dtype=int)
+    data_coord = np.zeros((nseeds*id_vec.shape[0], num_lgth_vec))
+
+    for id_exp in range(num_exp):
+        data = dim_comparison[:, id_exp, :, :]
+        for counter in range(num_lgth_vec):
+            data_coord[:, counter] = data[:, counter, id_vec].flatten()
+        '''
+        ax.violinplot(data_coord, 
+                      positions = lgth_vector,
+                      showmeans = True, 
+                      showmedians = True)
+        '''
+        ax.plot(lgth_vector, data_coord.mean(axis=0), '-o',
+                color = col[id_exp])
+        ax.fill_between(lgth_vector, 
+                        data_coord.mean(axis=0)-data_coord.std(axis=0), 
+                        data_coord.mean(axis=0)+data_coord.std(axis=0), 
+                        color = col[id_exp],
+                        alpha=0.2)
+
+        id_vec = id_vec + 1
+        data = dim_comparison[:, id_exp, :, :]
+        for counter in range(num_lgth_vec):
+            data_coord[:, counter] = data[:, counter, id_vec].flatten()
+        '''
+        ax.violinplot(data_coord, 
+                      positions = lgth_vector,
+                      showmeans = True, 
+                      showmedians = True)
+        '''
+        ax.plot(lgth_vector, data_coord.mean(axis=0), '-o',
+                color = col[id_exp+1])
+        ax.fill_between(lgth_vector, 
+                        data_coord.mean(axis=0)-data_coord.std(axis=0), 
+                        data_coord.mean(axis=0)+data_coord.std(axis=0), 
+                        color = col[id_exp],
+                        alpha=0.2)
+
+def plot_comparison_analysis(ax, exp_dictionary, net_name, plot_legend):    
+    '''
+    To plot a comparison between EBP and BP for increasing the length of time series.
+
+    Parameters
+    ----------
+    ax : Matplotlib Axes object
+        Draw the graph in the specified Matplotlib axes.
+    exp_dictionary : dict
+        Dictionary carrying the information about the experiments to be plotted.
+    net_name : str
+        Network filename.
+    plot_legend : boolean
+        To plot the legend inside the ax panel.
+
+    Returns
+    -------
+    None.
+
+    '''
+    seeds = list(exp_dictionary.keys())
+    Nseeds = int(len(seeds))
+    G = nx.read_edgelist("network_structure/{}.txt".format(net_name),
+                        nodetype = int, create_using = nx.Graph)
+    
+    N = 2*len(G)
+    
+    lgth_endpoints = exp_dictionary[seeds[0]]['lgth_endpoints']
+    lgth_vector = np.arange(lgth_endpoints[0], lgth_endpoints[1],
+                                      lgth_endpoints[2], dtype = int)
+    
+    num_exp_vec = len(list(exp_dictionary[seeds[0]]['exp_params'].keys()))
+    dim_comparison = np.zeros((Nseeds, num_exp_vec, lgth_vector.shape[0], N))
+    
+    
+    for id_seed in range(Nseeds):
+        lgth_vector, dim_comparison[id_seed, :, :, :]  = \
+                                                        compare_basis(exp_dictionary[seeds[id_seed]], 
+                                                                      net_name)
+    plot_hist_ker(ax, lgth_vector-2000, dim_comparison)
+    ax.set_xlabel(r'length of time series $n$')
+    ax.set_ylabel(r'dim($\ker{\Psi}(\bar{x})$)')
+    #ax.set_yscale('log')
+    
+    
+def plot_lgth_dependence(net_name, exps_dictionary, title, filename = None):    
+    '''
+    Plot the reconstruction performance vs length of time series.
+
+
+    Parameters
+    ----------
+    net_name : str
+        Network filename.
+    exps_dictionary : dict
+        Dictionary carrying the information about the experiments to be plotted.
+    title : str
+        Title to be plotted.
+    filename : str, optional
+        Saving pdf filename. The default is None.
+
+    Returns
+    -------
+    None.
+
+    '''
+    keys = list(exps_dictionary.keys())
+    n_cols = int(len(keys))
+    
+    fig = plt.figure(figsize = (6, 2), dpi = 300)
+    
+    plot_legend = True
+    for id_col in range(n_cols):
+        gs1 = GridSpec(nrows=1, ncols=1, figure=fig)
+        
+        exp_dictionary = exps_dictionary[keys[id_col]]
+        
+        ax1 = fig.add_subplot(gs1[0])
+        
+        plot_comparison_analysis(ax1, exp_dictionary, net_name, plot_legend)
+        if plot_legend:
+            plot_legend = False
+        fig.suptitle(title[id_col])
+    
+    
+    if filename == None:
+        fig.suptitle('dimension of kernel')
+        plt.show()
+    else:
+        plt.savefig(filename+".pdf", format='pdf', bbox_inches='tight')
+        
+    return     
+
 #=============================================================================#
 #Figure scripts
 #=============================================================================#

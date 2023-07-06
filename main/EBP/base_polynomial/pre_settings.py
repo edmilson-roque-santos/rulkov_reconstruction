@@ -142,11 +142,11 @@ def create_orthnormfunc_clusters_kde(cluster_list, params,
     
     params['build_from_reduced_basis'] = False
     params['save_orthnormfunc'] = save_orthnormfunc
-    params = triage_params(params)
     params['cluster_list'] = cluster_list
+    params = triage_params(params)
+    
     X_t = params['X_time_series_data']
-    params = rulkov.params_cluster(params['cluster_list'], params)   
-
+    
     PHI, params = polb.library_matrix(X_t, params)        
     
-    return params
+    return params['orthnormfunc']

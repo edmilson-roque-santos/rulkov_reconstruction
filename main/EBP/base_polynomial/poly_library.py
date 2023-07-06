@@ -135,7 +135,7 @@ def l2_inner_product(func1, func2, params):
     norm_factor = params['density_normalization']
     integrand = lambda x: func1(x)*func2(x)*density(x)/norm_factor
        
-    proj, err = quad(integrand, a, b, epsabs = 1e-12, epsrel = 1e-12)
+    proj, err = quad(integrand, a, b, epsabs = 1e-8, epsrel = 1e-8)
     
     return np.around(proj, 8)
 
@@ -284,12 +284,13 @@ def term_integration(expr, params):
         
     #If expr is simply a constant, simply sum to the integral's value.
     if(expr.is_constant()):
-        integr = expr
-        return float(integr)
+        integr = expr.n(8)
+        return float(round(integr, 8))
     
     #Otherwise, break expression in terms to calculate separately the contribution
     #for each of them in the product.        
     else:
+        
         set_symb_expr = list(expr.free_symbols)
         num_of_symb = len(set_symb_expr)
         tuple_a_x_b = expr.leadterm(set_symb_expr[0])
@@ -303,7 +304,8 @@ def term_integration(expr, params):
                 expr_temp = params[set_symb_expr[symb_expr]]['moments']['m_{}'.format(tuple_a_x_b[1])]*tuple_a_x_b[0]
             if expr_temp.is_constant():
                 integr = expr_temp
-        return float(integr)
+        
+        return float(round(integr, 8))
             
 
 def fubini_integration_BF(expr_GS, num_of_args, params):
@@ -337,7 +339,7 @@ def fubini_integration_BF(expr_GS, num_of_args, params):
         for id_args in range(len(expr_args)):
             integral = integral + term_integration(expr_args[id_args], params)
         
-        return float(integral)
+        return float(round(integral, 8))
     
 def spy_l2_inner_product(expr_1, expr_2, params):
     '''
@@ -359,13 +361,13 @@ def spy_l2_inner_product(expr_1, expr_2, params):
 
     '''
     expr = expr_1*expr_2
-    expr = expr.expand()
+    expr = expr.expand().n(8)
     poly_expr = spy.poly(expr)
     num_of_args = len(poly_expr.monoms())#len(list(expr.args))
     
     integral = fubini_integration_BF(expr, num_of_args, params)
     
-    return float(integral)
+    return float(round(integral, 8))
 
 def spy_gram_schmidt(exp_array, params_, power_indices):
     '''
@@ -430,44 +432,60 @@ def spy_gram_schmidt(exp_array, params_, power_indices):
             #On the opposite side, calculate other orthonormal function 
             #identified by exp_array.    
             else:
-                temp_func = sympy_polynomial_exp(x_t, exp_array)
-                
-                #power_indices has an intrinsic ordering. Hence, we create mask 
-                # to identify which index exp_array corresponds to.
-                mask_id_vec = power_indices == exp_array
-                mask_id = np.all(mask_id_vec, axis = 1)
-                id_keys = np.argwhere(mask_id)[0][0]
-                
-                for id_key in range(1, id_keys + 1):
-                    try:
-                        ref_func = params['orthnormfunc'][tuple(power_indices[id_key - 1, :])]
-                    except:
-                        if not use_path:    
-                            ref_func = spy_gram_schmidt(tuple(power_indices[id_key - 1, :]), params, power_indices)
-                        if use_path:    
-                            ref_func, params = spy_gram_schmidt(tuple(power_indices[id_key - 1, :]), params, power_indices)
-                            
-                    expr = sympy_polynomial_exp(x_t, exp_array)
+                supp = np.where(np.array(exp_array) != 0)[0]
+                num_vars = supp.shape[0]
+                if num_vars == 1:
+                    temp_func = sympy_polynomial_exp(x_t, exp_array).n(8)
                     
-                    integral = spy_l2_inner_product(expr, ref_func, params)
+                    #power_indices has an intrinsic ordering. Hence, we create mask 
+                    # to identify which index exp_array corresponds to.
+                    mask_id_vec = power_indices == exp_array
+                    mask_id = np.all(mask_id_vec, axis = 1)
+                    id_keys = np.argwhere(mask_id)[0][0]
                     
-                    #Cut-off any inner product below threshold_proj
-                    if(np.abs(integral) < threshold_proj):
-                        integral = float(0.0)
+                    for id_key in range(1, id_keys + 1):
+                        try:
+                            ref_func = params['orthnormfunc'][tuple(power_indices[id_key - 1, :])]
+                        except:
+                            if not use_path:    
+                                ref_func = spy_gram_schmidt(tuple(power_indices[id_key - 1, :]), params, power_indices)
+                            if use_path:    
+                                ref_func, params = spy_gram_schmidt(tuple(power_indices[id_key - 1, :]), params, power_indices)
+                                
+                        expr = sympy_polynomial_exp(x_t, exp_array).n(8)
                         
-                    temp_func = difference_spy(temp_func, multiply_spy(integral, ref_func))
+                        integral = spy_l2_inner_product(expr, ref_func, params)
+                        
+                        #Cut-off any inner product below threshold_proj
+                        if(np.abs(integral) < threshold_proj):
+                            integral = float(0.0)
+                        integral = round(integral, 8)
+                        
+                        temp_func = difference_spy(temp_func, multiply_spy(integral, ref_func))
+                        
+                    integral = spy_l2_inner_product(temp_func, temp_func, params)
                     
-                integral = spy_l2_inner_product(temp_func, temp_func, params)
-                
-                norm = spy.sqrt(integral)
-                norm = float(norm)
-                normed_func = temp_func/norm
-                params['orthnormfunc'][exp_array] = normed_func
-                if not use_path:    
-                    return normed_func   
-                if use_path:
-                    return normed_func, params 
-
+                    if integral < 0:
+                        print('Warning: L2^2 norm is negative', integral)
+                    integral = round(abs(integral), 8)
+                    
+                    norm = spy.sqrt(integral).n(8)
+                    norm = float(norm)
+                    normed_func = temp_func/norm
+                    params['orthnormfunc'][exp_array] = normed_func
+                    if not use_path:    
+                        return normed_func   
+                    if use_path:
+                        return normed_func, params 
+                else:
+                    func = 1
+                    for id_ in supp:
+                        exp_temp = np.zeros(N)
+                        exp_temp[id_] = exp_array[id_]
+                        func = func*params['orthnormfunc'][tuple(exp_temp)]
+                    
+                    params['orthnormfunc'][exp_array] = func
+                    return func, params
 #=======================================##=======================================#
 
 # Function to find out all combinations of positive numbers  

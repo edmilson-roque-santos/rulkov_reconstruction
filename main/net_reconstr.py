@@ -5,6 +5,7 @@ import cvxpy as cp
 import networkx as nx 
 import numpy as np
 import os
+from scipy.linalg import null_space
 import sympy as spy
 from tqdm import tqdm
 
@@ -93,7 +94,7 @@ def retrieve_dyn_sym(x_eps, params, indep_term = True):
         c_num_x = sv[:L]
         c_den_x = np.zeros(L)
         c_den_x[0] = 1
-        c_den_x[1:] = sv[L+1:]
+        c_den_x[1:] = sv[L:]
         
     else:               
         c_num_x = sv[:L]
@@ -167,7 +168,7 @@ def reconstr(X_t_, params, solver_optimization = solver_default):
     
     if params_['use_orthonormal']:
         params_ = trg.triage_params(params_)
-    
+        
     X_t = X_t_[:-1, :]
     B = X_t_[1:, :]
     
@@ -338,6 +339,84 @@ def ADM_reconstr(X_t_, params):
     net_dict['info_x_eps'] = x_eps_dict.copy()
     net_dict['x_eps_matrix'] = x_eps_matrix
     net_dict['x_eps_matrix'][np.absolute(net_dict['x_eps_matrix']) < threshold] = 0.0
+                        
+    return  net_dict      
+
+def kernel_calculation(X_t_, params):
+    '''
+    Calculates the dimension of the kernel of the library matrix
+    
+    Parameters
+    ----------
+    X_t_ : numpy array - size (length_of_time_series, number_of_vertices)
+        Multivariate time series.
+    params : dict
+    
+    solver_optimization : cp solver, optional
+        Solver to be used in the convex minimization problem. 
+        The default is solver_default.
+
+    Returns
+    -------
+    net_dict : dict
+        Dictionary encoding Adjacency matrix, Graph structure and Library matrix.
+        Keys: 
+            'PHI' : numpy array
+                Library matrix
+            'PHI.T PHI' : numpy array
+                Library matrix multiplied by its transpose
+            'params' : dict
+                Core dictionary of the code to track the relevant information of the reconstruction.
+            'info_x_eps' : dict
+                Trace the reconstruction for each node. Save the information of the coefficient vector of each node.
+    '''
+    params_ = params.copy()
+    params_['nodelist'] = np.arange(0, X_t_.shape[1], 1, dtype = int)
+    N = params_['nodelist'].shape[0]
+    
+    threshold = params_['threshold_connect']
+    
+    net_dict = dict()          #create greedy algorithm dictionary to save info
+    
+    net_dict['info_x_eps'] = dict()   #info is dictionary with several info saving along the process
+    net_dict['sym_node_dyn'] = dict()
+
+    params_['number_of_vertices'] = params_['nodelist'].shape[0]
+    if params_['use_canonical']:
+        params_ = trg.triage_params(params_)
+     
+    if params_['use_orthonormal'] and params_['build_from_reduced_basis']:
+        params_ = pre_set.set_orthnormfunc(params_['orthnorm_func_filename'], params_)
+    
+    if params_['use_orthonormal']:
+        params_ = trg.triage_params(params_)
+    
+    X_t = X_t_[:-1, :]
+    B = X_t_[1:, :]
+    
+    params_['length_of_time_series'] = X_t.shape[0]
+    
+    PHI, params_ = polb.library_matrix(X_t, params_)
+    net_dict['PHI'] = PHI
+    net_dict['PHI.T PHI'] = PHI.T @ PHI 
+    net_dict['params'] = params_.copy()   #for reference we save the params used
+        
+    params_['power_indices'] = np.vstack((params_['power_indices'], params_['power_indices'][1:,:]))
+    
+    id_trial = params_['id_trial']
+    
+    x_eps_dict = dict()     #x_eps is created to save info about the reconstruction of nodes
+    x_eps_dict['params'] = params_.copy()
+               
+    B_ = B.copy()
+    for id_node in tqdm(id_trial, **tqdm_par):
+        b = B_[:, id_node]
+        
+        THETA = np.hstack((PHI, np.diag(b) @ PHI))
+        
+        x_eps_dict[id_node] = null_space(THETA).shape[1]
+        
+    net_dict['info_x_eps'] = x_eps_dict.copy()
                         
     return  net_dict      
 

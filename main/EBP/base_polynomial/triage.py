@@ -2,9 +2,91 @@ import numpy as np
 import os 
 import scipy.special
 import sympy as spy
+from scipy import stats
 
 from . import poly_library as polb
 from .. import tools
+
+
+def cluster_moment_est(cluster_list, params):
+    '''
+    The assumption to estimate the density function for each cluster is that
+    all nodes in a given cluster behaves similarly, hence we use all trajectories
+    of those nodes to estimate the same density function.
+    
+    Parameters
+    ----------
+    cluster_list : list
+        List of graph partition containing node list for each cluster.
+    params : dict
+
+    Returns
+    -------
+    parameters : dict
+        Updated parameters dictionary to be used throughout the simulation.
+        The updated arguments are: the calculation of density functions per cluster
+        given by the cluster_list variable.
+
+    '''
+    
+    parameters = params.copy()
+    
+    #If kernel density estimation is used, a data point must be given before hand
+    if(params['use_kernel'] and params['use_integral_1d']):
+        parameters['type_density'] = params.get('type_density', '1d_Kernel')
+        parameters['density'] = params.get('density', None)
+        if parameters['density'] == None:
+            #Gather data points to be used on the kernel density estimator
+            if len(params['X_time_series_data'] > 0):
+                x_t = [spy.symbols('x_{}'.format(j)) for j in range(0, params['number_of_vertices'])]
+                num_clusters = len(cluster_list)
+                id_vec = np.arange(0, params['number_of_vertices'], dtype = int)
+                for id_cluster in range(num_clusters):
+                    id_vec_cluster =  np.asarray(cluster_list[id_cluster], dtype = int)
+                    mask_cluster = np.isin(id_vec, id_vec_cluster)
+                    
+                    X_t_cluster = params['X_time_series_data'][:, mask_cluster]
+                    data_cluster = X_t_cluster.T.flatten()
+                    kernel_cluster = stats.gaussian_kde(data_cluster, bw_method = 5e-2)
+                    
+                    for id_node in id_vec_cluster:
+                        parameters[x_t[id_node]] = dict()
+                        parameters[x_t[id_node]]['type_density'] = params.get('type_density', '1d_Kernel')
+                        parameters[x_t[id_node]]['density'] = params.get('density', None)
+        
+                        #Lower and upper bound of the phase space of the isolated dynamics
+                        parameters[x_t[id_node]]['lower_bound'] = params.get('lower_bound', np.min(data_cluster))
+                        parameters[x_t[id_node]]['upper_bound'] = params.get('upper_bound', np.max(data_cluster))
+                        parameters[x_t[id_node]]['density'] =  kernel_cluster#/kernel.integrate_box_1d(parameters[x_t[id_node]]['lower_bound'], parameters[x_t[id_node]]['upper_bound'])
+                        parameters[x_t[id_node]]['density_normalization'] = kernel_cluster.integrate_box_1d(parameters[x_t[id_node]]['lower_bound'], parameters[x_t[id_node]]['upper_bound'])
+
+    return parameters
+
+def params_cluster(cluster_list, params):
+    '''
+    Update symbolic representation of the moments calculation accordingly 
+    to cluster_list.
+
+    Parameters
+    ----------
+    cluster_list : list
+        List of graph partition containing node list for each cluster.
+    params : dict
+
+    Returns
+    -------
+    parameters : Updated
+        Updated parameters dictionary to be used throughout the simulation.
+        
+    '''
+    #parameters = params.copy()
+    params_cluster = cluster_moment_est(cluster_list, params)
+    '''
+    x_t = [spy.symbols('x_{}'.format(j)) for j in range(0, params['number_of_vertices'])]
+    for id_node in range(params['number_of_vertices']):
+        parameters[x_t[id_node]] = params_cluster[x_t[id_node]]
+    '''
+    return params_cluster
 
 def triage_params(params):
     '''
@@ -36,12 +118,16 @@ def triage_params(params):
     #Index array for those nodes which are included in the libray matrix
     #for reconstruction
     parameters['id_trial'] = params.get('id_trial', np.arange(parameters['number_of_vertices'], dtype = int))
+    parameters['cluster_list'] = params.get('cluster_list')
     
     #Node to be estimated in the reconstruction
     parameters['node_test'] = params.get('node_test')
     
     #Length of time series
     parameters['length_of_time_series'] = params.get('length_of_time_series', 100)
+    
+    #Time series
+    parameters['X_time_series_data'] = params.get('X_time_series_data', np.array([]))
     
     #Adjacency matrix of the graph
     parameters['adj_matrix'] = params.get('adj_matrix')
@@ -103,6 +189,9 @@ def triage_params(params):
     #To use one-dimensional integration
     parameters['use_integral_1d'] = params.get('use_integral_1d', True)
     
+    #To use clustered density function
+    parameters['single_density'] = params.get('single_density', False)
+    
     #Type of measures
     if(parameters['use_lebesgue']):
         parameters['density'] = params.get('density', lambda x : 1.0)   #Lebesgue measure:
@@ -110,60 +199,10 @@ def triage_params(params):
         
     
     if(parameters['use_orthonormal']):
-        if not parameters['use_kernel']: 
-            parameters['single_density'] = params.get('single_density', True)
-            parameters['density'] = params.get('density', lambda x : 1.0/(np.sqrt(x*(1 - x))*np.pi))    #Logistic invariant measure:
-            parameters['type_density'] = params.get('type_density', '1d_Logistic')   
-            x_t = [spy.symbols('x_{}'.format(j)) for j in range(0, parameters['number_of_vertices'])]
-            for id_node in range(parameters['number_of_vertices']):
-                parameters[x_t[id_node]] = dict()
-                parameters[x_t[id_node]]['lower_bound'] = params.get('lower_bound', 0)
-                parameters[x_t[id_node]]['upper_bound'] = params.get('upper_bound', 1)
-                            
-                parameters[x_t[id_node]]['type_density'] = params.get('type_density', '1d_Logistic')
-                parameters[x_t[id_node]]['density'] = params.get('density', lambda x : 1.0/(np.sqrt(x*(1 - x))*np.pi))    #Logistic invariant measure:
-                parameters[x_t[id_node]]['density_normalization'] = 1.0
-                
-        #If kernel density estimation is used, a data point must be given before hand
-        if(parameters['use_kernel'] and parameters['use_integral_1d']):
-            parameters['single_density'] = params.get('single_density', True)
-            parameters['type_density'] = params.get('type_density', '1d_Kernel')
-            parameters['density'] = params.get('density', None)
-            if parameters['density'] == None:
-                #Gather data points to be used on the kernel density estimator
-                parameters['X_time_series_data'] = params.get('X_time_series_data', np.array([]))
-                if len(parameters['X_time_series_data'] > 0):
-                    parameters['num_iterations_diverges'] = params.get('num_iterations_diverges', 50)
-                    
-                    #The density is estimated using all trajectories like a single trajectory    
-                    if parameters['single_density']:        
-                        Opto_orbit = parameters['X_time_series_data'].T.flatten()
-                        single_kernel = tools.kernel_data(Opto_orbit)
-                   
-                    x_t = [spy.symbols('x_{}'.format(j)) for j in range(0, parameters['number_of_vertices'])]
-                    for id_node in range(parameters['number_of_vertices']):
-                        parameters[x_t[id_node]] = dict()
-                        parameters[x_t[id_node]]['type_density'] = params.get('type_density', '1d_Kernel')
-                        parameters[x_t[id_node]]['density'] = params.get('density', None)
-                        
-                        if parameters['single_density']:        
-                            parameters[x_t[id_node]]['lower_bound'] = params.get('lower_bound', np.min(Opto_orbit))
-                            parameters[x_t[id_node]]['upper_bound'] = params.get('upper_bound', np.max(Opto_orbit))
-                            parameters[x_t[id_node]]['density'] = single_kernel
-                            parameters[x_t[id_node]]['density_normalization'] = single_kernel.integrate_box_1d(np.min(Opto_orbit), np.max(Opto_orbit))
-                            
+        params_ = parameters.copy()
         
-                        if not parameters['single_density']:
-                            node_traj = parameters['X_time_series_data'][:, id_node]
-                            
-                            #Lower and upper bound of the phase space of the isolated dynamics
-                            parameters[x_t[id_node]]['lower_bound'] = params.get('lower_bound', np.min(node_traj))
-                            parameters[x_t[id_node]]['upper_bound'] = params.get('upper_bound', np.max(node_traj))
-                            
-                            kernel = tools.kernel_data(node_traj)
-                            parameters[x_t[id_node]]['density'] = kernel
-                            parameters[x_t[id_node]]['density_normalization'] = kernel.integrate_box_1d(parameters[x_t[id_node]]['lower_bound'], parameters[x_t[id_node]]['upper_bound'])
-                            
+        parameters = params_cluster(params['cluster_list'], params_) 
+        
         #To use orthonormal functions saved in a file before hand
         parameters['use_orthnorm_func_data'] = params.get('use_orthnorm_func_data', True)
         
