@@ -108,7 +108,7 @@ def retrieve_dyn_sym(x_eps, params, indep_term = True):
     num_x = spy_PHI.dot(c_num_spy_x)
     den_x = spy_PHI.dot(c_den_spy_x)
 
-    symb_node_dyn = spy.simplify(num_x/den_x)
+    symb_node_dyn = num_x/den_x #spy.simplify(num_x/den_x)
 
     return symb_node_dyn
 
@@ -155,7 +155,8 @@ def reconstr(X_t_, params, solver_optimization = solver_default):
     threshold = params_['threshold_connect']
     
     net_dict = dict()          #create greedy algorithm dictionary to save info
-    
+    net_dict['Y_t'] = params_['Y_t'] #x_time_series[-test_time:, :]
+
     net_dict['info_x_eps'] = dict()   #info is dictionary with several info saving along the process
     net_dict['sym_node_dyn'] = dict()
     
@@ -198,12 +199,14 @@ def reconstr(X_t_, params, solver_optimization = solver_default):
         b = B_[:, id_node]
         try:
             THETA = np.hstack((PHI, -1*np.diag(b) @ PHI[:, 1:]))
-            
+            '''
             x_eps, num_nonzeros_vec = optimizer.l_1_optimization(b, THETA, 
                                                                  params_['noisy_measurement'], 
                                                                  params_,
                                                                  solver_default)            
-            
+            '''
+            x_eps = np.linalg.lstsq(THETA, b, rcond=-1)[0]/(np.sqrt(params_['length_of_time_series']))
+             
         except:
             x_eps = np.zeros(L)
             if VERBOSE:
@@ -220,6 +223,7 @@ def reconstr(X_t_, params, solver_optimization = solver_default):
     net_dict['info_x_eps'] = x_eps_dict.copy()
     net_dict['x_eps_matrix'] = x_eps_matrix
     net_dict['x_eps_matrix'][np.absolute(net_dict['x_eps_matrix']) < threshold] = 0.0
+    net_dict['error'] = uniform_error(net_dict, num_samples = 50, time_eval = 1)         
                         
     return  net_dict      
 
@@ -267,6 +271,7 @@ def ADM_reconstr(X_t_, params):
     threshold = params_['threshold_connect']
     
     net_dict = dict()          #create greedy algorithm dictionary to save info
+    net_dict['Y_t'] = params['Y_t'] #x_time_series[-test_time:, :]
     
     net_dict['info_x_eps'] = dict()   #info is dictionary with several info saving along the process
     net_dict['sym_node_dyn'] = dict()
@@ -339,7 +344,7 @@ def ADM_reconstr(X_t_, params):
     net_dict['info_x_eps'] = x_eps_dict.copy()
     net_dict['x_eps_matrix'] = x_eps_matrix
     net_dict['x_eps_matrix'][np.absolute(net_dict['x_eps_matrix']) < threshold] = 0.0
-                        
+    net_dict['error'] = uniform_error(net_dict, num_samples = 50, time_eval = 1)         
     return  net_dict      
 
 def kernel_calculation(X_t_, params):
@@ -413,9 +418,9 @@ def kernel_calculation(X_t_, params):
         b = B_[:, id_node]
         
         THETA = np.hstack((PHI, np.diag(b) @ PHI))
-        
-        x_eps_dict[id_node] = null_space(THETA).shape[1]
-        
+        ker_THETA = null_space(THETA)
+        x_eps_dict[id_node] = ker_THETA.shape[1]
+        x_eps_dict['ker_{}'.format(id_node)] = ker_THETA       
     net_dict['info_x_eps'] = x_eps_dict.copy()
                         
     return  net_dict      

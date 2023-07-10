@@ -13,6 +13,10 @@ import networkx as nx
 import numpy as np
 import os
 from scipy import stats
+import scipy.special
+from scipy import optimize        
+import sympy as spy
+
 
 import h5dict
 
@@ -243,10 +247,10 @@ def plot_isolated_comp(ax, Y_t, z_t, id_node, id_x = 0):
     colors = ['silver', 'midnightblue', 'gray']
     
     if id_x == 0:
-        ax.set_ylabel(r'$f^{x}(u, v)$')
+        ax.set_ylabel(r'$f(u, v)$')
         ax.set_xlabel(r'$u$')
     else:
-        ax.set_ylabel(r'$f^{y}(u, v)$')
+        ax.set_ylabel(r'$g(u, v)$')
         ax.set_xlabel(r'$v$')   
     
     interv = np.arange(np.min(Y_t[:, id_node]), np.max(Y_t[:, id_node]), 0.001)
@@ -262,7 +266,7 @@ def plot_isolated_comp(ax, Y_t, z_t, id_node, id_x = 0):
     ax.set_xlim(np.min(np.min(Y_t[:, id_node])), np.max(Y_t[:, id_node]))
     ax.set_ylim(np.min(r_t_[id_x::2]), np.max(r_t_[id_x::2]))
 
-def ax_plot_graph(ax, net_name, plot_net_alone=False):
+def ax_plot_graph(ax, G_true, pos_true, ns = 500, plot_net_alone=False):
     '''
     Plot the ring graph
 
@@ -280,18 +284,15 @@ def ax_plot_graph(ax, net_name, plot_net_alone=False):
     '''
     colors = ['darkgrey', 'orange', 'darkviolet', 'darkslategrey', 'silver']
 
-    G_true = nx.read_edgelist("network_structure/{}.txt".format(net_name),
-                        nodetype = int, create_using = nx.Graph)
-    #pos_true = nx.circular_layout(G_true)
-    pos_true = nx.bipartite_layout(G_true, nodes = [0])
+    
     nx.draw_networkx_nodes(G_true, pos = pos_true,
                            ax = ax, node_color = colors[3], 
                            linewidths= 2.0,
-                           node_size = 550,
+                           node_size = ns+50,
                            alpha = 1.0)
     nx.draw_networkx_nodes(G_true, pos = pos_true,
                            node_color = colors[0], 
-                           node_size = 500,
+                           node_size = ns,
                            ax = ax,
                            alpha = 1.0)
     
@@ -303,13 +304,13 @@ def ax_plot_graph(ax, net_name, plot_net_alone=False):
                            arrowsize = 7,
                            width = 1.0,
                            alpha = 1.0)
-    ax.margins(0.6)
+    ax.margins(0.4)
     ax.axis("off")
     if plot_net_alone:
         ax.set_title('{}'.format('Original Network'))
 
 
-def compare_basis(exp_dictionary, net_name):
+def ker_dim_compare(exp_dictionary, net_name):
     '''
     Given a experiment dict, it calculates the performance of the reconstruction.
 
@@ -350,12 +351,98 @@ def compare_basis(exp_dictionary, net_name):
             key = lgth_vector[id_key]
 
             for id_node in range(N):
-                dim_comparison[id_exp, id_key, id_node] = exp_dictionary[exp_vec[id_exp]][key][id_node]
-                
+                try:
+                    dim_comparison[id_exp, id_key, id_node] = exp_dictionary[exp_vec[id_exp]][key][id_node]
+                except:
+                    dim_comparison[id_exp, id_key, id_node] = 0
+                    print('key', key, 'is not in the file')
     return lgth_vector, dim_comparison
 
-def plot_hist_ker(ax, lgth_vector, dim_comparison):
-    col = mpl.color_sequences['tab20c']
+def error_compare(exp_dictionary, net_name):
+    '''
+    Given a experiment dict, it calculates the performance of the reconstruction.
+
+    Parameters
+    ----------
+    exp_dictionary : dict
+        Output results dictionary.
+    net_name : str
+        Filename.
+
+    Returns
+    -------
+    lgth_vector : numpy array 
+        Array with length of time series vector.
+    FP_comparison : numpy array
+        False positive proportion for each length of time series.
+    FN_comparison : numpy array
+        False negative proportion for each length of time series.
+    d_matrix : TYPE
+        DESCRIPTION.
+
+    '''
+    
+    exp_vec = list(exp_dictionary['exp_params'].keys())
+    lgth_endpoints = exp_dictionary['lgth_endpoints']
+    G = nx.read_edgelist("network_structure/{}.txt".format(net_name),
+                        nodetype = int, create_using = nx.Graph)
+    
+    N = 2*len(G)
+    
+    lgth_vector = np.arange(lgth_endpoints[0], lgth_endpoints[1],
+                                      lgth_endpoints[2], dtype = int)
+    
+    error_comparison = np.zeros((len(exp_vec), lgth_vector.shape[0], N))
+
+    for id_exp in range(len(exp_vec)):
+        for id_key in range(len(lgth_vector)):
+            key = lgth_vector[id_key]
+            try:
+                error_comparison[id_exp, id_key, :] = exp_dictionary[exp_vec[id_exp]][key]['error']
+            except:
+                error_comparison[id_exp, id_key, :] = np.zeros(N)
+                print('key', key, 'is not in the file')
+    
+    return lgth_vector, error_comparison
+
+
+def compare_basis_net_size(exp_dictionary):
+    '''
+    Given a experiment dict, it calculates the performance of the reconstruction.
+
+    Parameters
+    ----------
+    exp_dictionary : dict
+        Output results dictionary.
+    
+    Returns
+    -------
+    size_vector : numpy array 
+        Array with length of time series vector.
+    n_critical_comparison : numpy array
+        n_critical for each length of time series.
+    
+    '''
+    exp_vec = list(exp_dictionary['exp_params'].keys())
+    size_endpoints = exp_dictionary['size_endpoints']
+    
+    size_vector = np.arange(size_endpoints[0], size_endpoints[1],
+                                      size_endpoints[2], dtype = int)
+    
+    n_critical_comparison = np.zeros((len(exp_vec), size_vector.shape[0]))
+    
+    for id_exp in range(len(exp_vec)):
+        for id_key in range(len(size_vector)):
+            key = size_vector[id_key]
+            n_critical = exp_dictionary[exp_vec[id_exp]][key]['n_critical']
+            n_critical_comparison[id_exp, id_key] = n_critical
+            
+            
+    return size_vector, n_critical_comparison
+
+def plot_hist_ker(ax, lgth_vector, dim_comparison, 
+                  plot_ycoord = False, col = mpl.color_sequences['tab20c']):
+    
     nseeds, num_exp, num_lgth_vec, N = dim_comparison.shape
     id_vec = np.arange(0, N, 2, dtype=int)
     data_coord = np.zeros((nseeds*id_vec.shape[0], num_lgth_vec))
@@ -364,14 +451,12 @@ def plot_hist_ker(ax, lgth_vector, dim_comparison):
         data = dim_comparison[:, id_exp, :, :]
         for counter in range(num_lgth_vec):
             data_coord[:, counter] = data[:, counter, id_vec].flatten()
-        '''
-        ax.violinplot(data_coord, 
-                      positions = lgth_vector,
-                      showmeans = True, 
-                      showmedians = True)
-        '''
-        ax.plot(lgth_vector, data_coord.mean(axis=0), '-o',
-                color = col[id_exp])
+        
+       
+        ax.plot(lgth_vector, data_coord.mean(axis=0), 
+                '-o',
+                color = col[id_exp],
+                label=r'fast variable')
         ax.fill_between(lgth_vector, 
                         data_coord.mean(axis=0)-data_coord.std(axis=0), 
                         data_coord.mean(axis=0)+data_coord.std(axis=0), 
@@ -382,21 +467,47 @@ def plot_hist_ker(ax, lgth_vector, dim_comparison):
         data = dim_comparison[:, id_exp, :, :]
         for counter in range(num_lgth_vec):
             data_coord[:, counter] = data[:, counter, id_vec].flatten()
-        '''
-        ax.violinplot(data_coord, 
-                      positions = lgth_vector,
-                      showmeans = True, 
-                      showmedians = True)
-        '''
-        ax.plot(lgth_vector, data_coord.mean(axis=0), '-o',
-                color = col[id_exp+1])
+        if plot_ycoord:
+            ax.plot(lgth_vector, data_coord.mean(axis=0), 
+                    '-o',
+                    color = col[id_exp+1],
+                    label=r'slow variable')
+            ax.fill_between(lgth_vector, 
+                            data_coord.mean(axis=0)-data_coord.std(axis=0), 
+                            data_coord.mean(axis=0)+data_coord.std(axis=0), 
+                            color = col[id_exp+1],
+                            alpha=0.2)
+        
+        #ax.legend(loc=0,fontsize=12)
+        
+def plot_error_comparison(ax, lgth_vector, dim_comparison,
+                          title, col = mpl.color_sequences['tab20c']):
+    
+    nseeds, num_exp, num_lgth_vec, N = dim_comparison.shape
+    id_vec = np.arange(0, N, 2, dtype=int)
+    data_coord = np.zeros((nseeds*id_vec.shape[0], num_lgth_vec))
+
+    for id_exp in range(num_exp):
+        data = dim_comparison[:, id_exp, :, :]
+        for counter in range(num_lgth_vec):
+            data_coord[:, counter] = data[:, counter, id_vec].flatten()
+        
+        ax.plot(lgth_vector, data_coord.mean(axis=0), 
+                '-o',
+                color = col[id_exp],
+                label=title)
         ax.fill_between(lgth_vector, 
                         data_coord.mean(axis=0)-data_coord.std(axis=0), 
                         data_coord.mean(axis=0)+data_coord.std(axis=0), 
                         color = col[id_exp],
                         alpha=0.2)
 
-def plot_comparison_analysis(ax, exp_dictionary, net_name, plot_legend):    
+        id_vec = id_vec + 1
+        
+
+def plot_comparison_analysis(ax, exp_dictionary, net_name, method, title,
+                             plot_ycoord, plot_def, plot_legend, 
+                             color = None):    
     '''
     To plot a comparison between EBP and BP for increasing the length of time series.
 
@@ -433,15 +544,122 @@ def plot_comparison_analysis(ax, exp_dictionary, net_name, plot_legend):
     
     for id_seed in range(Nseeds):
         lgth_vector, dim_comparison[id_seed, :, :, :]  = \
-                                                        compare_basis(exp_dictionary[seeds[id_seed]], 
-                                                                      net_name)
-    plot_hist_ker(ax, lgth_vector-2000, dim_comparison)
+                                method(exp_dictionary[seeds[id_seed]], 
+                                                net_name)
+    lgth_vector = lgth_vector
+    
+    if plot_def:
+        plot_hist_ker(ax, lgth_vector, dim_comparison, plot_ycoord, col = mpl.color_sequences['tab20c'])
+        ax.hlines(1, lgth_vector[0], lgth_vector[-1],
+                  colors='k',
+                  linestyles='dashed')
+        ax.set_ylabel(r'dim($\ker{\Psi}(\bar{x})$)')
+    
+    else:
+        plot_error_comparison(ax, lgth_vector, dim_comparison, title,col = [color])
+        ax.set_ylabel(r'$E_i$')
+        ax.set_xlim(300, 2050)
+        if plot_legend:
+            ax.legend(loc=0)
     ax.set_xlabel(r'length of time series $n$')
-    ax.set_ylabel(r'dim($\ker{\Psi}(\bar{x})$)')
-    #ax.set_yscale('log')
+    
+    #ax.set_ylim(0, 1300)
+    #ax.set_title(r'Kernel')
+    ax.set_yscale('log')
+    
+def plot_comparison_n_critical(ax, exp_dictionary, plot_legend):    
+    '''
+    To plot the comparison between EBP and BP in the experiment: n_c vs N
+
+    Parameters
+    ----------
+    ax : Matplotlib Axes object
+        Draw the graph in the specified Matplotlib axes.
+    exp_dictionary : dict
+        Dictionary carrying the information about the experiments to be plotted.
+    plot_legend : boolean
+        To plot the legend inside the ax panel.
+
+    Returns
+    -------
+    None.
+
+    '''
+    seeds = list(exp_dictionary.keys())
+    Nseeds = int(len(seeds))
+    
+    size_endpoints = exp_dictionary[seeds[0]]['size_endpoints']
+    size_vector = np.arange(size_endpoints[0], size_endpoints[1],
+                                      size_endpoints[2], dtype = int)
+    
+    n_c_comparison = np.zeros((Nseeds, 2, size_vector.shape[0]))
     
     
-def plot_lgth_dependence(net_name, exps_dictionary, title, filename = None):    
+    for id_seed in range(Nseeds):
+        size_vector, n_c_comparison[id_seed, :, :] = compare_basis_net_size(exp_dictionary[seeds[id_seed]])
+    
+    avge_nc_comparison = n_c_comparison.mean(axis = 0)    
+    std_nc_comparison = n_c_comparison.std(axis = 0)     
+    ax.plot(size_vector+1, avge_nc_comparison[0, :], 'o-', color='gray')
+    ax.fill_between(size_vector+1, 
+                    avge_nc_comparison[0, :]-std_nc_comparison[0, :], 
+                    avge_nc_comparison[0, :]+std_nc_comparison[0, :], 
+                    color = 'k',
+                    alpha=0.2)
+    from scipy import optimize
+
+    ##########
+    # Fitting the data -- Least Squares Method
+    ##########
+
+    # Power-law fitting is best done by first converting
+    # to a linear equation and then fitting to a straight line.
+    # Note that the `logyerr` term here is ignoring a constant prefactor.
+    #
+    #  y = a * x^b
+    #  log(y) = log(a) + b*log(x)
+    #
+
+    # define our (line) fitting function
+    fitfunc = lambda p, x: p[0] + p[1] * x
+    errfunc = lambda p, x, y, err: (y - fitfunc(p, x)) / err
+    y_data = avge_nc_comparison[0, 2:]
+    logy = np.log10(y_data)
+    x = size_vector[2:]+1
+    yerr = std_nc_comparison[0, 2:]
+    logyerr = yerr / y_data
+    pinit = [1.0, -1.0]
+    out = optimize.leastsq(errfunc, pinit,
+                           args=(x, logy, logyerr), full_output=1)
+
+    pfinal = out[0]
+    covar = out[1]
+    print(pfinal)
+    print(covar)
+
+    index = pfinal[1]
+    amp = pfinal[0]
+
+    indexErr = np.sqrt( covar[1][1] )
+    ampErr = np.sqrt( covar[0][0] ) * amp
+    leastsq_regression = np.power(10, amp + x*(index))
+    amp_ = '{:.2f}'.format(10**amp)
+    a = '{:.2f}'.format(10**index)
+    ax.plot(x, leastsq_regression, '--', color='tab:red',
+            label = r'$n_c = {} \times {}^N$'.format(amp_, a),
+            alpha=0.8)
+    
+    ax.legend(loc=0)
+    ax.set_ylabel(r'$n_0$')
+    ax.set_yscale('log')
+    plt.setp(ax.get_xticklabels(), visible=True)
+    ax.set_xlabel(r'$N$')
+    
+def plot_lgth_dependence(net_name, exps_dictionary, title, 
+                         method = ker_dim_compare,
+                         plot_ycoord= False,
+                         plot_def = True,
+                         filename = None):    
     '''
     Plot the reconstruction performance vs length of time series.
 
@@ -465,30 +683,186 @@ def plot_lgth_dependence(net_name, exps_dictionary, title, filename = None):
     keys = list(exps_dictionary.keys())
     n_cols = int(len(keys))
     
-    fig = plt.figure(figsize = (6, 2), dpi = 300)
+    if n_cols > 1:
+        color = ['darkcyan', 'midnightblue']
+    else:
+        color = [None]
     
+    fig_ = plt.figure(figsize = (7, 2), dpi = 300)
+    
+    subfigs = fig_.subfigures(1, 2)
+    
+    fig1 = subfigs[0]
+    
+    ax = fig1.subplots(1, 1)
+    G_true = nx.read_edgelist("network_structure/{}.txt".format(net_name),
+                        nodetype = int, create_using = nx.Graph)
+    
+    pos_true = nx.spring_layout(G_true)
+    
+    ax_plot_graph(ax, G_true, pos_true, ns = 100)
+    ax.set_title(r'a)', loc='left')
+    
+    fig = subfigs[1]
+    gs1 = GridSpec(nrows=1, ncols=1, figure=fig)
+    ax1 = fig.add_subplot(gs1[0])
     plot_legend = True
     for id_col in range(n_cols):
-        gs1 = GridSpec(nrows=1, ncols=1, figure=fig)
-        
         exp_dictionary = exps_dictionary[keys[id_col]]
         
-        ax1 = fig.add_subplot(gs1[0])
+        plot_comparison_analysis(ax1, exp_dictionary, net_name, method, title[id_col], 
+                                 plot_ycoord, plot_def, plot_legend, 
+                                 color[id_col])
         
-        plot_comparison_analysis(ax1, exp_dictionary, net_name, plot_legend)
         if plot_legend:
-            plot_legend = False
-        fig.suptitle(title[id_col])
-    
-    
+            plot_legend = True
+        
+        ax1.set_title(r'b)', loc='left')
+    #fig.suptitle('b)')
     if filename == None:
-        fig.suptitle('dimension of kernel')
+        
         plt.show()
     else:
         plt.savefig(filename+".pdf", format='pdf', bbox_inches='tight')
         
     return     
 
+def plot_n_c_size(exps_dictionary, title, filename = None,
+                  plot_legend_global = True):     
+    '''
+    Plot the n_c vs N.
+
+    Parameters
+    ----------
+    exp_dictionary : dict
+        Dictionary carrying the information about the experiments to be plotted.
+    title : str
+        Title to be plotted.
+    filename : str, optional
+        Saving pdf filename. The default is None.
+
+    Returns
+    -------
+    None.
+
+    '''
+    
+    keys = list(exps_dictionary.keys())
+    n_cols = int(len(keys))
+    
+    fig = plt.figure(figsize = (6, 3), dpi = 300)
+    
+    if plot_legend_global:
+        plot_legend = True
+    else:
+        plot_legend = False
+    for id_col in range(n_cols):
+        gs1 = GridSpec(nrows=1, ncols=1, figure=fig)
+        exp_dictionary = exps_dictionary[keys[id_col]]
+        ax1 = fig.add_subplot(gs1[0])
+        #ax2 = fig1.add_subplot(gs1[1])
+        
+        plot_comparison_n_critical(ax1, exp_dictionary, plot_legend)
+        if plot_legend:
+            plot_legend = False
+        #fig1.suptitle(title[1], x = 0.05)
+    
+    #fig_.suptitle('fig')
+
+    if filename == None:
+        plt.show()
+    else:
+        plt.savefig(filename+".pdf", format='pdf', bbox_inches='tight')
+    
+def num_basis(r=3):
+    
+    N_vector = np.arange(2, 50, 1, dtype = int)
+    m_N = np.zeros(N_vector.shape[0])
+    for i, N in enumerate(N_vector):
+        m_N[i] = scipy.special.comb(2*N, 2, exact = True)*scipy.special.comb(r, 2, exact = True) + 2*N*r + 1
+    
+    fig, ax = plt.subplots()
+    ax.plot(N_vector, m_N, 'k-')
+    plt.show()
+
+def f(x, m_N):
+    delta = m_N - x
+    min_fun = delta*np.log(delta)-m_N
+    return min_fun
+
+def min_length_time_series(N = 3, r = 3):
+    
+    m_N_ = scipy.special.comb(2*N, 2, exact = True)*scipy.special.comb(r, 2, exact = True) + 2*N*r + 1
+    m_N = 2*m_N_
+    
+    root = optimize.newton(f, m_N-10, args=(m_N, ))
+    
+    diff = m_N - root
+    print(root, diff)
+    n = np.arange(1, m_N, 1, dtype = int)
+    
+    delta = m_N - n
+    min_fun = delta*np.log(delta)
+    min_fun_planted = np.log(delta)*delta**2
+    min_fun_linear = delta
+    
+    fig, ax = plt.subplots()
+    ax.plot(n, min_fun, '-')
+    ax.plot(n, min_fun_planted, '--')
+    ax.plot(n, min_fun_linear, 'r--')
+    ax.hlines(m_N, n[0], n[-1], colors = 'black')
+    ax.set_ylim(1, m_N+100)
+    ax.vlines(root, 1, m_N)
+    plt.show()    
+
+def n_1_vs_N(r = 3):
+    
+    N_vector = np.arange(2, 50, 1, dtype = int)
+    m_vec = np.zeros(N_vector.shape[0])
+    diff_vec = np.zeros(N_vector.shape[0])
+    root_vec = np.zeros(N_vector.shape[0])
+    for i, N in enumerate(N_vector):
+        m_N_ = scipy.special.comb(2*N, 2, exact = True)*scipy.special.comb(r, 2, exact = True) + 2*N*r + 1
+        m_N = 2*m_N_
+        m_vec[i] = m_N
+        
+        root_vec[i] = optimize.newton(f, m_N-10, args=(m_N, ))
+        
+        diff_vec[i] = m_N - root_vec[i]
+    
+    fig, ax = plt.subplots(2,1, sharex=True)
+    ax[0].plot(N_vector, m_vec, '-')
+    ax[0].plot(N_vector, root_vec, '-')
+    ax[0].set_yscale('log')
+
+    ax[1].plot(N_vector, diff_vec, '-')
+    ax[1].set_yscale('log')
+    plt.show()   
+    
+    return diff_vec, root_vec
+    
+def latex_model(net_dict, N = 2):
+    
+    x_t = [spy.symbols('x_{}'.format(j)) for j in range(0, 2*N)]
+    
+    x_t_ = [spy.symbols('x_{}'.format(j)) for j in range(1, N+1)]
+    y_t_ = [spy.symbols('y_{}'.format(j)) for j in range(1, N+1)]
+    
+    subs_ = dict()
+    for i in range(1, 2*N):
+        if np.mod(i, 2):
+            subs_[x_t[i]] = y_t_[int(i/2)]
+        else:
+            subs_[x_t[i]] = x_t_[int(i/2)]
+    print(subs_)
+    symbs = net_dict['sym_node_dyn']
+    for keys in symbs.keys():
+        f = symbs[keys]
+        g = f.subs(subs_)
+        h = g.subs({x_t[0]:x_t_[0]})
+        print(keys, spy.latex(spy.simplify(h).n(8)))
+    
+    
 #=============================================================================#
 #Figure scripts
 #=============================================================================#
@@ -567,7 +941,12 @@ def Fig_1(net_dict, net_name, id_node = 0, filename = None):
     subfigsnest = fig.subfigures(2, 1, hspace = 0.01, height_ratios=[1, 2.5])
     
     ax = subfigsnest[0].subplots(1, 1)
-    ax_plot_graph(ax, net_name)
+    G_true = nx.read_edgelist("network_structure/{}.txt".format(net_name),
+                        nodetype = int, create_using = nx.Graph)
+    
+    pos_true = nx.bipartite_layout(G_true, nodes = [0])
+    
+    ax_plot_graph(ax, G_true, pos_true)
     subfigsnest[0].suptitle(r'a)', x=0.0, ha='left')
 
     ax1 = subfigsnest[1].subplots(2, 1, sharex=True)
