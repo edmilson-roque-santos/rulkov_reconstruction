@@ -9,6 +9,7 @@ Created on Mon Jun 26 10:38:37 2023
 
 import numpy as np
 from numpy import linalg as LA
+from numpy.random import default_rng
 from scipy.linalg import null_space
 
 ##===========================================================================##
@@ -121,9 +122,13 @@ def ADM_initial_guess_variation(kernel_matrix, lambda_parameter,
     '''    
            
     M = params['length_of_time_series']
+    random_seed = params['random_seed'] 
+    rng = default_rng(random_seed)  #Initializes an instance of the pseudo random generator;
     
+    num_rows = len(kernel_matrix[:, 0])
+    perc_num_rows = int(percentage_of_rows*len(kernel_matrix[:, 0]))
     #Select uniformly 10 percent of the row for searching the sparse vector
-    percentage_rows_kernel_matrix = np.random.randint(0, len(kernel_matrix[:, 0]), int(percentage_of_rows*len(kernel_matrix[:, 0])))
+    percentage_rows_kernel_matrix = rng.integers(0, num_rows, size = perc_num_rows, dtype = int, endpoint = False)
    
     number_of_row_kernel_matrix = len(percentage_rows_kernel_matrix)
     #print('num_rows', number_of_row_kernel_matrix)
@@ -157,7 +162,7 @@ def ADM_initial_guess_variation(kernel_matrix, lambda_parameter,
     
     #Set thresholded coefficients to zero    
     sparse_vector[np.absolute(sparse_vector) < lambda_parameter] = 0.0 
-     
+    
     #Check that the solution found by ADM is unique. 
     if(len(indices_sparse_vectos) > 1 and len(ind_nonzero_coefficients) > 0):
         
@@ -222,7 +227,7 @@ def ADM_pareto(PHI_implicit_method, params, number_of_points = 30, lambda_0 = 1e
         sparsity_of_vector[counter, 0] = lambda_parameter
         sparsity_of_vector[counter, 1] = number_of_terms
         pareto_front[counter, 0] = number_of_terms
-        pareto_front[counter, 1] = np.sum(PHI_implicit_method.dot(sparse_vector))
+        pareto_front[counter, 1] = np.sum(np.absolute(PHI_implicit_method.dot(sparse_vector)))
         matrix_sparse_vectors[counter, :] = sparse_vector
 
         

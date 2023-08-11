@@ -16,6 +16,7 @@ from EBP.base_polynomial import triage as trg
 from EBP import greedy_algorithms as gnr_alg
 from EBP.modules.ADM import ADM
 from EBP.modules.rulkov import rulkov
+import lab_rulkov as lr
 
 solver_default = cp.ECOS
 VERBOSE = True
@@ -94,7 +95,7 @@ def retrieve_dyn_sym(x_eps, params, indep_term = True):
         c_num_x = sv[:L]
         c_den_x = np.zeros(L)
         c_den_x[0] = 1
-        c_den_x[1:] = sv[L:]
+        #c_den_x[1:] = sv[L:]
         
     else:               
         c_num_x = sv[:L]
@@ -228,7 +229,7 @@ def reconstr(X_t_, params, solver_optimization = solver_default):
     return  net_dict      
 
 
-def ADM_reconstr(X_t_, params):
+def ADM_reconstr(X_t_, params, plot_pareto = False):
     '''
     Network reconstruction at once strategy.
     
@@ -322,8 +323,12 @@ def ADM_reconstr(X_t_, params):
             net_dict['sym_node_dyn'][id_node] = retrieve_dyn_sym(x_eps_can, params_, 
                                                                  indep_term = True)
         else:
+       
             THETA = np.hstack((PHI, np.diag(b) @ PHI))
             sparsity_of_vector, pareto_front, matrix_sparse_vectors = ADM.ADM_pareto(THETA, params_)
+            if plot_pareto:
+                lr.plot_pareto_front(sparsity_of_vector, pareto_front)
+                
             x_eps_dict[id_node] = matrix_sparse_vectors
             x_eps = ADM.pareto_test(sparsity_of_vector, pareto_front, matrix_sparse_vectors)
             x_eps_can = x_eps.copy()                                    
@@ -461,7 +466,7 @@ def uniform_error(net_dict, num_samples = 50, time_eval = 1):
 
         for id_node in range(N):
             y_true = Y_t[id_test:id_test + time_eval + 1, id_node]
-            error = tools.RSME(y_true, Z[:, id_node])
+            error = tools.RSME(y_true[1:], Z[1:, id_node])
             
             error_matrix[id_node] = error_matrix[id_node]\
                 + error**2/num_samples   

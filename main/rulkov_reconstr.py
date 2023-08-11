@@ -311,7 +311,7 @@ def compare_setup(exp_name, net_name, G, lgth_endpoints, random_seed = 1,
                 
                 script_dict['id_trial'] = None
                 script_dict['random_seed'] = random_seed
-                script_dict['exp'] = net_reconstr.reconstr#ADM_reconstr
+                script_dict['exp'] = net_reconstr.ADM_reconstr#
                 
                 net_dict = compare_script(script_dict)
                 out_results_hdf5[key][lgth_time_series] = dict()
@@ -570,7 +570,7 @@ def compare_setup_critical_n(exp_name, net_info, size_endpoints, id_trial,
         return exp_dictionary
 
 def net_seed(G, rs, method):
-    exp_name = 'l2_n_vary_trs_5000'
+    exp_name = 'n_vary_trs_5000'
     net_name = 'star_graph_N=5'
     lgth_endpoints = [350, 2001, 50]
     random_seed = rs
@@ -619,8 +619,8 @@ def MC_script(main, net_name = 'star_graphs_n_4_hub_coupled'):
     G = nx.read_edgelist("network_structure/{}.txt".format(net_name),
                         nodetype = int, create_using = nx.Graph)
     ##### Randomness
-    Nseeds = 10
-    MonteCarlo_seeds = np.arange(1, Nseeds + 1)     # Seed for random number generator
+    Nseeds = 6
+    MonteCarlo_seeds = np.arange(5, Nseeds + 5)     # Seed for random number generator
     
     exp_ = dict()
     for rs in MonteCarlo_seeds:
@@ -759,12 +759,11 @@ def exp_setting_n_c(exps_name, sizes_endpoints, net_class = 'ring_graph',
 
 def stars_coupled_plot_script(Nseeds = 10):
     
-    exps_dictionary, title = exp_setup(lgths_endpoints = [[100, 2101, 100]],
-                                       exps_name = ['ker_n_vary_orth'],
+    exps_dictionary =  exp_setup(lgths_endpoints = [[100, 2101, 100]],
+                                       exps_name = ['ker_n_vary_trs_5000'],
                                        net_name = 'star_graphs_n_4_hub_coupled',
-                                       title = [r'Dependence on $n$'],
                                        Nseeds = Nseeds)
-    
+    title = [r'Dependence on $n$']
     lr.plot_lgth_dependence('star_graphs_n_4_hub_coupled', 
                             exps_dictionary, 
                             title, 
@@ -776,6 +775,11 @@ def star_plot_script(Nseeds = 10):
                                        exps_name = ['l2_n_vary_trs_5000', 'n_vary_trs_5000'],
                                         net_name = 'star_graph_N=5',
                                         Nseeds = Nseeds)
+    lgth_vector = np.arange(350, 2001, 50, dtype = int)
+    
+    for seed in range(1, Nseeds + 1):
+        for lgth in lgth_vector:
+            exps_dictionary[0][seed][0][lgth]['error'] = np.sqrt(2)*exps_dictionary[0][seed][0][lgth]['error']
     title = [r'$\ell_2$', r'Implicit SINDy']
     lr.plot_lgth_dependence('star_graph_N=5', 
                             exps_dictionary, 
@@ -783,7 +787,7 @@ def star_plot_script(Nseeds = 10):
                             method = lr.error_compare,
                             plot_ycoord= False,
                             plot_def = False,
-                            filename = None)
+                            filename = 'error_compare')
     
 def n_c_plot_script(Nseeds = 10):
     '''
@@ -807,7 +811,7 @@ def n_c_plot_script(Nseeds = 10):
     exps_dictionary = exp_setting_n_c(exps_name, size_endpoints, 
                                              net_class = 'star_graph',
                                              Nseeds = Nseeds)
-    
+    #
     lr.plot_n_c_size(exps_dictionary, title, filename = 'nc_vs_N_star')
     return exps_dictionary 
 
@@ -827,9 +831,9 @@ def test():
     #solver_optimization = cp.ECOS#CVXOPT
     #net_dict = net_reconstr.reconstr(X_t, params, solver_optimization)
     #net_reconstr.kernel_calculation(X_t, params)
-    script_dict['exp'] = net_reconstr.ADM_reconstr#
+    script_dict['exp'] = net_reconstr.kernel_calculation
     net_dict = compare_script(script_dict)
-    
+    return net_dict        
     '''
     error_matrix = net_reconstr.uniform_error(net_dict, num_samples = 50, time_eval = 1)
 
@@ -838,6 +842,7 @@ def test():
 
     folder = 'Figures/'
     filename = None#folder+'Fig_1_v0'
-    lr.Fig_1(net_dict, script_dict['net_name'], id_node = 2, filename = filename )
+    lr.Fig_1(net_dict, script_dict['net_name'], id_node = 0, filename = filename )
+    
+    return net_dict, error_matrix
     '''
-    return net_dict

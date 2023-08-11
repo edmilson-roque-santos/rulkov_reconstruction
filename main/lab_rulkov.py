@@ -30,9 +30,9 @@ from EBP import tools, net_dyn
 params_plot = {'axes.labelsize': 16,
               'axes.titlesize': 16,
               'axes.linewidth': 1.0,
-              'axes.xmargin':0, 
-              'axes.ymargin': 0,
-              'legend.fontsize': 16,
+              'axes.xmargin':0.1, 
+              'axes.ymargin': 0.1,
+              'legend.fontsize': 12,
               'xtick.labelsize': 15,
               'ytick.labelsize': 15,
               'figure.figsize': (8, 6),
@@ -600,12 +600,37 @@ def plot_comparison_n_critical(ax, exp_dictionary, plot_legend):
     
     avge_nc_comparison = n_c_comparison.mean(axis = 0)    
     std_nc_comparison = n_c_comparison.std(axis = 0)     
-    ax.plot(size_vector+1, avge_nc_comparison[0, :], 'o-', color='gray')
-    ax.fill_between(size_vector+1, 
+    x_v = size_vector+1
+    
+    col = mpl.color_sequences['tab20b']
+    ax.fill_between(x_v, 
+                    avge_nc_comparison[0, :], 
+                    3000, 
+                    color = col[3],
+                    alpha=1.0)
+    
+    N_vector = np.arange(2, 12, 1, dtype = int)
+    m_vec = np.zeros(N_vector.shape[0])
+    r = 3
+    for i, N in enumerate(N_vector):
+        m_N_ = scipy.special.comb(2*N, 2, exact = True)*scipy.special.comb(r, 2, exact = True) + 2*N*r + 1
+        m_N = 2*m_N_
+        m_vec[i] = m_N
+    ax.fill_between(x_v, 
+                    m_vec, 
+                    avge_nc_comparison[0, :], 
+                    color = col[2],
+                    alpha=1.0)
+    
+    ax.plot(x_v, avge_nc_comparison[0, :], 'o-', 
+            label=r'$n_0$', 
+            color='k')
+    ax.fill_between(x_v, 
                     avge_nc_comparison[0, :]-std_nc_comparison[0, :], 
                     avge_nc_comparison[0, :]+std_nc_comparison[0, :], 
                     color = 'k',
-                    alpha=0.2)
+                    alpha=0.5)
+    
     from scipy import optimize
 
     ##########
@@ -624,34 +649,35 @@ def plot_comparison_n_critical(ax, exp_dictionary, plot_legend):
     fitfunc = lambda p, x: p[0] + p[1] * x
     errfunc = lambda p, x, y, err: (y - fitfunc(p, x)) / err
     y_data = avge_nc_comparison[0, 2:]
-    logy = np.log10(y_data)
-    x = size_vector[2:]+1
+    logy =y_data
+    x = (size_vector[2:]+1)
     yerr = std_nc_comparison[0, 2:]
     logyerr = yerr / y_data
     pinit = [1.0, -1.0]
     out = optimize.leastsq(errfunc, pinit,
-                           args=(x, logy, logyerr), full_output=1)
+                           args=(x**2, logy, logyerr), full_output=1)
 
     pfinal = out[0]
     covar = out[1]
-    print(pfinal)
-    print(covar)
+    print('pfinal-n_0', pfinal)
+    print('covar-n_0', covar)
 
     index = pfinal[1]
     amp = pfinal[0]
 
     indexErr = np.sqrt( covar[1][1] )
     ampErr = np.sqrt( covar[0][0] ) * amp
-    leastsq_regression = np.power(10, amp + x*(index))
-    amp_ = '{:.2f}'.format(10**amp)
-    a = '{:.2f}'.format(10**index)
-    ax.plot(x, leastsq_regression, '--', color='tab:red',
-            label = r'$n_c = {} \times {}^N$'.format(amp_, a),
-            alpha=0.8)
+    leastsq_regression = amp + (index)*x**2 #np.power(10, amp + x*(index))
+    amp_ = '{:.2f}'.format(amp)
+    a = '{:.2f}'.format(index)
+    print('exp-n_0', r'${} + {} N^2$'.format(amp_, a))
+    ax.plot(x, leastsq_regression, ls = 'dashed', color='tab:orange',
+            label = r'${} + {} N^2$'.format(amp_, a),
+            alpha=0.9)
     
     ax.legend(loc=0)
-    ax.set_ylabel(r'$n_0$')
-    ax.set_yscale('log')
+    ax.set_ylabel(r'$n$')
+    #ax.set_yscale('log')
     plt.setp(ax.get_xticklabels(), visible=True)
     ax.set_xlabel(r'$N$')
     
@@ -763,11 +789,12 @@ def plot_n_c_size(exps_dictionary, title, filename = None,
         #ax2 = fig1.add_subplot(gs1[1])
         
         plot_comparison_n_critical(ax1, exp_dictionary, plot_legend)
+        n_1_vs_N(ax1, r = 3)
         if plot_legend:
             plot_legend = False
         #fig1.suptitle(title[1], x = 0.05)
     
-    #fig_.suptitle('fig')
+    #fig.suptitle(r'Performance diagram')
 
     if filename == None:
         plt.show()
@@ -815,9 +842,9 @@ def min_length_time_series(N = 3, r = 3):
     ax.vlines(root, 1, m_N)
     plt.show()    
 
-def n_1_vs_N(r = 3):
+def n_1_vs_N(ax = None, r = 3):
     
-    N_vector = np.arange(2, 50, 1, dtype = int)
+    N_vector = np.arange(2, 12, 1, dtype = int)
     m_vec = np.zeros(N_vector.shape[0])
     diff_vec = np.zeros(N_vector.shape[0])
     root_vec = np.zeros(N_vector.shape[0])
@@ -829,16 +856,82 @@ def n_1_vs_N(r = 3):
         root_vec[i] = optimize.newton(f, m_N-10, args=(m_N, ))
         
         diff_vec[i] = m_N - root_vec[i]
+    if ax is None:
+        fig, ax = plt.subplots(2,1, sharex=True)
+        ax[0].plot(N_vector, m_vec, '-')
+        ax[0].plot(N_vector, root_vec, '-')
+        ax[0].set_yscale('log')
     
-    fig, ax = plt.subplots(2,1, sharex=True)
-    ax[0].plot(N_vector, m_vec, '-')
-    ax[0].plot(N_vector, root_vec, '-')
-    ax[0].set_yscale('log')
+        ax[1].plot(N_vector, diff_vec, '-')
+        ax[1].set_yscale('log')
+        plt.show()   
+    
+    else:
+        ax.plot(N_vector, root_vec, '--', color='black', label=r'$n_1 \propto N^2$')
+        ax.plot(N_vector, m_vec, '-.', color='black', label=r'$2 m(N, r)$')
+        
+        col = mpl.color_sequences['tab20b']
+        ax.fill_between(N_vector, 
+                        root_vec, 
+                        m_vec, 
+                        color = col[1],
+                        alpha=1.0)
+        
+        ax.fill_between(N_vector, 
+                        0, 
+                        root_vec, 
+                        color = col[0],
+                        alpha=1.0)
+        
+        ax.text(9, 2500, r'IV', fontsize = 15)
+        ax.text(10.5, 1700, r'III', fontsize = 15)
+        ax.text(10.5, 1200, r'II', fontsize = 15)
+        ax.text(10, 500, r'I', fontsize = 15)
+        ##########
+        # Fitting the data -- Least Squares Method
+        ##########
 
-    ax[1].plot(N_vector, diff_vec, '-')
-    ax[1].set_yscale('log')
-    plt.show()   
-    
+        # Power-law fitting is best done by first converting
+        # to a linear equation and then fitting to a straight line.
+        # Note that the `logyerr` term here is ignoring a constant prefactor.
+        #
+        #  y = a * x^b
+        #  log(y) = log(a) + b*log(x)
+        #
+
+        # define our (line) fitting function
+        fitfunc = lambda p, x: p[0] + p[1] * x
+        errfunc = lambda p, x, y, err: (y - fitfunc(p, x)) / err
+        y_data = root_vec
+        logy = y_data
+        x = N_vector
+        yerr = 0.0001
+        logyerr = yerr / y_data
+        pinit = [1.0, -1.0]
+        out = optimize.leastsq(errfunc, pinit,
+                               args=(x**2, logy, logyerr), full_output=1)
+
+        pfinal = out[0]
+        covar = out[1]
+        print('pfinal-n_1', pfinal)
+        print('covar-n_1', covar)
+
+        index = pfinal[1]
+        amp = pfinal[0]
+
+        indexErr = np.sqrt( covar[1][1] )
+        ampErr = np.sqrt( covar[0][0] ) * amp
+        leastsq_regression = amp + (index)*x**2
+        amp_ = '{:.2f}'.format(amp)
+        a = '{:.2f}'.format(index)
+        print('exp-n_1', r'$n_1 = {} + {} N^2$'.format(amp_, a))
+        
+        '''
+        ax.plot(x, leastsq_regression, '--', color='k',
+                label = r'$n_1 = {} + {} N^2$'.format(amp_, a),
+                alpha=0.8)
+        '''
+        ax.legend(loc=0)
     return diff_vec, root_vec
     
 def latex_model(net_dict, N = 2):
@@ -862,7 +955,40 @@ def latex_model(net_dict, N = 2):
         h = g.subs({x_t[0]:x_t_[0]})
         print(keys, spy.latex(spy.simplify(h).n(8)))
     
+def plot_pareto_front(sparsity_of_vector, pareto_front):
+
+    pos_different_zero = np.argwhere(np.absolute(pareto_front[:, 1]) > 1e-14)[:, 0]
     
+    pos_minimum_error = np.argmin(np.absolute(pareto_front[pos_different_zero, 1]))       
+    
+    fig, ax = plt.subplots(1, 2, figsize = (6, 3), dpi=300)
+    
+    ax[0].set_title(r'a)', loc = 'left')
+    ax[0].semilogx(sparsity_of_vector[:, 0], sparsity_of_vector[:, 1], 'o', color = 'dimgray')
+
+    ax[0].scatter(sparsity_of_vector[pos_minimum_error, 0], 
+                  sparsity_of_vector[pos_minimum_error, 1], 
+                  s=80, 
+                  facecolors='none', 
+                  edgecolors='r')
+
+    ax[0].set_xlabel(r"Threshold $\gamma$")
+    ax[0].set_ylabel("Number of terms")
+    ax[1].set_title(r'b)', loc = 'left')
+    ax[1].semilogy(pareto_front[:, 0], pareto_front[:, 1], 'o', color = 'dimgray')
+    ax[1].scatter(pareto_front[pos_minimum_error, 0], 
+                  pareto_front[pos_minimum_error, 1], 
+                  s=80, 
+                  facecolors='none', 
+                  edgecolors='r')
+    
+    ax[1].set_xlabel("Number of terms")
+    ax[1].set_ylabel(r"Error $\|\Psi(\bar{\mathbf{x}}) u\|_1$")
+    plt.tight_layout()
+    
+    filename='pareto_font'
+    plt.savefig(filename+".pdf", format='pdf', bbox_inches='tight')
+    plt.show()
 #=============================================================================#
 #Figure scripts
 #=============================================================================#
