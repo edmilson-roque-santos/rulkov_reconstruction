@@ -652,7 +652,7 @@ def plot_comparison_n_critical(ax, exp_dictionary, plot_legend):
     logy =y_data
     x = (size_vector[2:]+1)
     yerr = std_nc_comparison[0, 2:]
-    logyerr = yerr / y_data
+    logyerr = 1#yerr / y_data
     pinit = [1.0, -1.0]
     out = optimize.leastsq(errfunc, pinit,
                            args=(x**2, logy, logyerr), full_output=1)

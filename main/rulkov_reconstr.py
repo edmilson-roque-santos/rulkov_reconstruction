@@ -609,7 +609,7 @@ def star_n_c_script(rs):
     net_info = dict()
     net_info['net_class'] = 'star_graph'
     net_info['gen'] = tools.star_graph
-    size_endpoints = [1, 11, 1]
+    size_endpoints = [15, 31, 5]
     id_trial = None
     compare_setup_critical_n(exp_name, net_info, size_endpoints, id_trial, 
                              random_seed = rs, save_full_info = False)
@@ -633,8 +633,8 @@ def MC_script(main, net_name = 'star_graphs_n_4_hub_coupled'):
 def MC_script_nc():
     
     ##### Randomness
-    Nseeds = 8
-    MonteCarlo_seeds = np.arange(3, 3 + Nseeds)     # Seed for random number generator
+    Nseeds = 1
+    MonteCarlo_seeds = np.arange(1, 1 + Nseeds)     # Seed for random number generator
     
     exp_ = dict()
     for rs in MonteCarlo_seeds:
