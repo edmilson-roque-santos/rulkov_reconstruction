@@ -330,6 +330,13 @@ def RSME(y_true, y_pred):
     
     return mean_squared_error(y_true, y_pred, squared=False)
 
+def x_corr(sign1, sign2):
+    
+    s1 = sign1 - sign1.mean()
+    s2 = sign2 - sign2.mean()
+    
+    np.correlate(s1, s2, mode='full')/(sign1.std()*sign2.std())
+
 #========================================================#
 #Functions saving data
 #========================================================#

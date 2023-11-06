@@ -467,9 +467,16 @@ def determine_critical_n(exp_param, size, exp_name, net_info, id_trial = None,
     
     m_N_ = scipy.special.comb(2*size, 2, exact = True)*scipy.special.comb(r, 2, exact = True) + 2*size*r + 1
     m_N = 2*m_N_
-    size_step = int(np.round(m_N/10))
     
-    lgth_time_series_vector = np.arange(m_N+1, m_N**2, size_step, dtype = int)
+    #Based on a fit from points between 3 - 14, we identify a exponential growth. 
+    #We employ this fitting to calculate larger values of N
+    
+    m_N_0 = int(np.round(np.exp(4.4)*np.exp(0.3*size)))
+    
+    size_step = int(np.round(m_N_0/10))
+        
+    
+    lgth_time_series_vector = np.arange(m_N_0, m_N**2, size_step, dtype = int)
     id_, max_iterations = 0, 100
     
     find_critical = True
@@ -609,7 +616,7 @@ def star_n_c_script(rs):
     net_info = dict()
     net_info['net_class'] = 'star_graph'
     net_info['gen'] = tools.star_graph
-    size_endpoints = [15, 31, 5]
+    size_endpoints = [15, 21, 2]
     id_trial = None
     compare_setup_critical_n(exp_name, net_info, size_endpoints, id_trial, 
                              random_seed = rs, save_full_info = False)
