@@ -407,7 +407,7 @@ def ker_compare_setup(exp_name, net_name, G, lgth_endpoints, random_seed = 1,
                 N = net_dict['params']['number_of_vertices']
                 for id_node in range(N):
                     out_results_hdf5[key][lgth_time_series][id_node] = net_dict['info_x_eps'][id_node]
-                    print('ker', net_dict['info_x_eps'][id_node])
+                    #print('ker', net_dict['info_x_eps'][id_node])
                     
                 if save_full_info:
                     out_results_hdf5[key][lgth_time_series]['PHI.T PHI'] = net_dict['PHI.T PHI']
@@ -587,8 +587,8 @@ def net_seed(G, rs, method):
     return exp_
 
 def ker_net_seed(G, rs, method):
-    exp_name = 'ker_n_vary_trs_5000'
-    net_name = 'star_graph_N=9'
+    exp_name = 'ker_n_vary_wot_sqrt'
+    net_name = 'star_graphs_n_4_hub_coupled'
     lgth_endpoints = [100, 2101, 100]
     random_seed = rs
     save_full_info = False
@@ -626,14 +626,14 @@ def MC_script(main, net_name = 'star_graphs_n_4_hub_coupled'):
     G = nx.read_edgelist("network_structure/{}.txt".format(net_name),
                         nodetype = int, create_using = nx.Graph)
     ##### Randomness
-    Nseeds = 6
-    MonteCarlo_seeds = np.arange(5, Nseeds + 5)     # Seed for random number generator
+    Nseeds = 10
+    MonteCarlo_seeds = np.arange(1, Nseeds + 1)     # Seed for random number generator
     
     exp_ = dict()
     for rs in MonteCarlo_seeds:
     
         #exp_[rs] = ker_net_seed(G, rs, method = ker_compare_setup)
-        exp_[rs] = main(G, rs, method = compare_setup)
+        exp_[rs] = main(G, rs, method = ker_compare_setup)
         
     return exp_
 
@@ -824,14 +824,14 @@ def n_c_plot_script(Nseeds = 10):
 
 def test():    
     script_dict = dict()
-    script_dict['opt_list'] = [True, False, False]
-    script_dict['lgth_time_series'] = 200
+    script_dict['opt_list'] = [False, False, True]
+    script_dict['lgth_time_series'] = 1300
     script_dict['exp_name'] = 'test_reconstr'
-    script_dict['net_name'] = 'two_nodes'
+    script_dict['net_name'] = 'star_graphs_n_4_hub_coupled'
     script_dict['G'] = nx.read_edgelist("network_structure/{}.txt".format(script_dict['net_name']),
                                         nodetype = int, create_using = nx.Graph)
     script_dict['cluster_list'] = [np.arange(0, 20, 2), np.arange(1, 20, 2)]#[np.array([0, 2]), np.array([1, 3])]#
-    script_dict['id_trial'] = None#np.arange(0, 20, 2)
+    script_dict['id_trial'] = np.arange(0, 20, 2)
     script_dict['random_seed'] = 1
     
     #net_dict = net_reconstr.ADM_reconstr(X_t, params)

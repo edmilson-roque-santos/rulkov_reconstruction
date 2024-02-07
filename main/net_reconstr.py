@@ -425,10 +425,10 @@ def kernel_calculation(X_t_, params):
         THETA = np.hstack((PHI, np.diag(b) @ PHI))
         ker_THETA = null_space(THETA)
         x_eps_dict[id_node] = ker_THETA.shape[1]
-        x_eps_dict['ker_{}'.format(id_node)] = ker_THETA       
+        x_eps_dict['ker_{}'.format(id_node)] = ker_THETA        
     net_dict['info_x_eps'] = x_eps_dict.copy()
                         
-    return  net_dict      
+    return net_dict      
 
 
 def uniform_error(net_dict, num_samples = 50, time_eval = 1):

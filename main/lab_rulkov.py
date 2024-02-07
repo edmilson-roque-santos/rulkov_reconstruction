@@ -49,7 +49,7 @@ plt.rc('text', usetex=True)
 #Generate the time series of coupled Rulkov maps
 #=============================================================================#
 
-def gen_X_time_series_sample(lgth_time_series, net_name = 'star_graphs_n_4_hub_coupled'):
+def gen_X_time_series_sample(lgth_time_series, net_name = 'star_graph_15'):
         
     parameters = dict()
     parameters['lgth_time_series'] = lgth_time_series
@@ -64,12 +64,12 @@ def gen_X_time_series_sample(lgth_time_series, net_name = 'star_graphs_n_4_hub_c
     A = np.asarray(A)
     degree = np.sum(A, axis=0)
     parameters['adj_matrix'] = A 
-    parameters['coupling'] = 0.0
+    parameters['coupling'] = 0.01
     #==========================================================#
     net_dynamics_dict = dict()
     net_dynamics_dict['adj_matrix'] = parameters['adj_matrix'] - degree*np.identity(A.shape[0])
     
-    transient_time = 2000
+    transient_time = 5000
     
     net_dynamics_dict['f'] = rulkov.rulkov_map
     net_dynamics_dict['h'] = rulkov.diff_coupling_x
@@ -138,7 +138,7 @@ def plot_return_map(ax, X_time_series):
         id_col = id_col + 1
         
 
-def plot_time_series(ax, X_time_series, perc_view = 0.8, sharex = True):
+def plot_time_series(ax, X_time_series, perc_view = 0.05, sharex = True):
     '''
     Plot time series for each node from multivariate time series.
 
@@ -553,7 +553,7 @@ def plot_comparison_analysis(ax, exp_dictionary, net_name, method, title,
         ax.hlines(1, lgth_vector[0], lgth_vector[-1],
                   colors='k',
                   linestyles='dashed')
-        ax.set_ylabel(r'dim($\ker{\Psi}(\bar{x})$)')
+        ax.set_ylabel(r'def($\Psi(\bar{x})$)')
     
     else:
         plot_error_comparison(ax, lgth_vector, dim_comparison, title,col = [color])
@@ -989,6 +989,21 @@ def plot_pareto_front(sparsity_of_vector, pareto_front):
     filename='pareto_font'
     plt.savefig(filename+".pdf", format='pdf', bbox_inches='tight')
     plt.show()
+    
+def plot_corr(lgth_time_series, size, index):
+    
+    X_t = gen_X_time_series_sample(lgth_time_series, net_name = 'star_graph_{}'.format(size))
+    #X_t = np.random.normal(size = (lgth_time_series, size))
+    
+    for id_ in index:
+        lags, ax = tools.x_corr(X_t[:, id_], X_t[:, id_])
+        lgn = int(lags.shape[0]/2)
+        plt.semilogy(lags[lgn:], np.absolute(ax)[lgn:])
+    
+    #lags, cx = tools.x_corr(X_t[:, index[0]], X_t[:, index[1]])
+    #plt.semilogy(lags[lgn:], np.absolute(cx)[lgn:])
+    
+    return ax 
 #=============================================================================#
 #Figure scripts
 #=============================================================================#

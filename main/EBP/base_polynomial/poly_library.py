@@ -1143,7 +1143,7 @@ def library_matrix(X_t, params):
             for deg in range(1, order + 1):
                 index_vec = np.arange(1, L, order) + (deg - 1)
                 #PHI[:, 1 + (deg - 1)*N : 1 + deg*N] = poly(deg)(X_t)/np.sqrt(M)
-                PHI[:, index_vec] = poly(deg)(X_t)/np.sqrt(M)
+                PHI[:, index_vec] = poly(deg)(X_t)#/np.sqrt(M)
                 
             if(normalization):
                 norm_column = LA.norm(PHI, axis = 0)
@@ -1155,7 +1155,7 @@ def library_matrix(X_t, params):
         
         if crossed_terms_condition:
             for l in range(power_indices.shape[0]):
-                PHI[:, l] = polynomial_exp(X_t, power_indices[l, :])/np.sqrt(M)
+                PHI[:, l] = polynomial_exp(X_t, power_indices[l, :])#/np.sqrt(M)
             
             if(normalization):
                 norm_column = LA.norm(PHI, axis = 0)

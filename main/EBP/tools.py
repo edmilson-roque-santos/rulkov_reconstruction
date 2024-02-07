@@ -13,7 +13,7 @@ import numpy as np
 from numpy.random import default_rng
 import os 
 import re
-from scipy import stats
+from scipy import stats, signal
 from sklearn.metrics import mean_squared_error
 import sympy as spy
 from sympy.parsing.sympy_parser import parse_expr
@@ -332,10 +332,16 @@ def RSME(y_true, y_pred):
 
 def x_corr(sign1, sign2):
     
-    s1 = sign1 - sign1.mean()
-    s2 = sign2 - sign2.mean()
+    n = np.max([sign1.shape[0], sign2.shape[0]])
     
-    np.correlate(s1, s2, mode='full')/(sign1.std()*sign2.std())
+    s1 = (sign1 - sign1.mean())/(sign1.std()*n)
+    s2 = (sign2 - sign2.mean())/sign2.std()
+    
+    
+    lags = signal.correlation_lags(s1.size, s2.size, mode="full")
+    cx = signal.correlate(s1, s2, mode='full')
+   
+    return lags, cx
 
 #========================================================#
 #Functions saving data
