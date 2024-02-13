@@ -587,9 +587,9 @@ def net_seed(G, rs, method):
     return exp_
 
 def ker_net_seed(G, rs, method):
-    exp_name = 'ker_n_vary_wot_sqrt'
+    exp_name = 'ker_n_vary'
     net_name = 'star_graphs_n_4_hub_coupled'
-    lgth_endpoints = [100, 2101, 100]
+    lgth_endpoints = [100, 2001, 100]
     random_seed = rs
     save_full_info = False
     exp_ = method(exp_name, net_name, G, lgth_endpoints, random_seed, 
@@ -627,7 +627,7 @@ def MC_script(main, net_name = 'star_graphs_n_4_hub_coupled'):
                         nodetype = int, create_using = nx.Graph)
     ##### Randomness
     Nseeds = 10
-    MonteCarlo_seeds = np.arange(1, Nseeds + 1)     # Seed for random number generator
+    MonteCarlo_seeds = np.arange(2, Nseeds + 1)     # Seed for random number generator
     
     exp_ = dict()
     for rs in MonteCarlo_seeds:
@@ -766,7 +766,7 @@ def exp_setting_n_c(exps_name, sizes_endpoints, net_class = 'ring_graph',
 
 def stars_coupled_plot_script(Nseeds = 10):
     
-    exps_dictionary =  exp_setup(lgths_endpoints = [[100, 2101, 100]],
+    exps_dictionary =  exp_setup(lgths_endpoints = [[100, 2001, 100]],
                                        exps_name = ['ker_n_vary_trs_5000'],
                                        net_name = 'star_graphs_n_4_hub_coupled',
                                        Nseeds = Nseeds)
@@ -824,8 +824,8 @@ def n_c_plot_script(Nseeds = 10):
 
 def test():    
     script_dict = dict()
-    script_dict['opt_list'] = [False, False, True]
-    script_dict['lgth_time_series'] = 1300
+    script_dict['opt_list'] = [True, False, False]
+    script_dict['lgth_time_series'] = 1000
     script_dict['exp_name'] = 'test_reconstr'
     script_dict['net_name'] = 'star_graphs_n_4_hub_coupled'
     script_dict['G'] = nx.read_edgelist("network_structure/{}.txt".format(script_dict['net_name']),

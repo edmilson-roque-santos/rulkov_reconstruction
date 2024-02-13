@@ -5,7 +5,7 @@ import cvxpy as cp
 import networkx as nx 
 import numpy as np
 import os
-from scipy.linalg import null_space
+from scipy.linalg import null_space, svd
 import sympy as spy
 from tqdm import tqdm
 
@@ -352,7 +352,7 @@ def ADM_reconstr(X_t_, params, plot_pareto = False):
     net_dict['error'] = uniform_error(net_dict, num_samples = 50, time_eval = 1)         
     return  net_dict      
 
-def kernel_calculation(X_t_, params):
+def kernel_calculation(X_t_, params, if_spectral = False, if_kernel = False):
     '''
     Calculates the dimension of the kernel of the library matrix
     
@@ -421,11 +421,19 @@ def kernel_calculation(X_t_, params):
     B_ = B.copy()
     for id_node in tqdm(id_trial, **tqdm_par):
         b = B_[:, id_node]
+        x_eps_dict[id_node] = dict()
         
         THETA = np.hstack((PHI, np.diag(b) @ PHI))
+        
+        if if_spectral:
+            s = svd(THETA, compute_uv=False)
+            x_eps_dict[id_node]['spectral'] = s
+            
         ker_THETA = null_space(THETA)
-        x_eps_dict[id_node] = ker_THETA.shape[1]
-        x_eps_dict['ker_{}'.format(id_node)] = ker_THETA        
+        x_eps_dict[id_node]['dim_ker'] = ker_THETA.shape[1]
+        if if_kernel:
+            x_eps_dict[id_node]['ker'] = ker_THETA        
+        
     net_dict['info_x_eps'] = x_eps_dict.copy()
                         
     return net_dict      
