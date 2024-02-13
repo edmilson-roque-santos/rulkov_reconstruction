@@ -588,7 +588,7 @@ def net_seed(G, rs, method):
 
 def ker_net_seed(G, rs, method):
     exp_name = 'ker_n_vary'
-    net_name = 'star_graphs_n_4_hub_coupled'
+    net_name = 'star_graph_N=9'
     lgth_endpoints = [100, 2001, 100]
     random_seed = rs
     save_full_info = False
@@ -626,8 +626,8 @@ def MC_script(main, net_name = 'star_graphs_n_4_hub_coupled'):
     G = nx.read_edgelist("network_structure/{}.txt".format(net_name),
                         nodetype = int, create_using = nx.Graph)
     ##### Randomness
-    Nseeds = 10
-    MonteCarlo_seeds = np.arange(2, Nseeds + 1)     # Seed for random number generator
+    Nseeds = 1
+    MonteCarlo_seeds = np.arange(1, Nseeds + 1)     # Seed for random number generator
     
     exp_ = dict()
     for rs in MonteCarlo_seeds:
@@ -764,17 +764,23 @@ def exp_setting_n_c(exps_name, sizes_endpoints, net_class = 'ring_graph',
 
     return exps_dictionary
 
-def stars_coupled_plot_script(Nseeds = 10):
+def fig1_plot_script(Nseeds = 10):
+    net_name = ['star_graphs_n_4_hub_coupled', 'star_graph_N=9']
     
-    exps_dictionary =  exp_setup(lgths_endpoints = [[100, 2001, 100]],
-                                       exps_name = ['ker_n_vary_trs_5000'],
-                                       net_name = 'star_graphs_n_4_hub_coupled',
-                                       Nseeds = Nseeds)
+    exps_dictionary1 =  exp_setup(lgths_endpoints = [[100, 2001, 100]],
+                                    exps_name = ['ker_n_vary'],
+                                    net_name = net_name[0],
+                                    Nseeds = Nseeds)
+    
+    exps_dictionary2 =  exp_setup(lgths_endpoints = [[100, 2001, 100]],
+                                    exps_name = ['ker_n_vary'],
+                                    net_name =  net_name[1],
+                                    Nseeds = Nseeds)
+    exps_dictionaries = [exps_dictionary1, exps_dictionary2]
     title = [r'Dependence on $n$']
-    lr.plot_lgth_dependence('star_graphs_n_4_hub_coupled', 
-                            exps_dictionary, 
-                            title, 
-                            filename = 'Figures/ker_n_vary_star_coupled')    
+    
+    lr.fig_1_paper(net_name, exps_dictionaries, title,
+                   filename = 'Figures/ker_n_vary')    
 
 
 def star_plot_script(Nseeds = 10):

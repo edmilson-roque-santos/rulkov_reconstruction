@@ -30,8 +30,8 @@ from EBP import tools, net_dyn
 params_plot = {'axes.labelsize': 16,
               'axes.titlesize': 16,
               'axes.linewidth': 1.0,
-              'axes.xmargin':0.1, 
-              'axes.ymargin': 0.1,
+              'axes.xmargin':0.05, 
+              'axes.ymargin': 0.05,
               'legend.fontsize': 12,
               'xtick.labelsize': 15,
               'ytick.labelsize': 15,
@@ -352,7 +352,7 @@ def ker_dim_compare(exp_dictionary, net_name):
 
             for id_node in range(N):
                 try:
-                    dim_comparison[id_exp, id_key, id_node] = exp_dictionary[exp_vec[id_exp]][key][id_node]
+                    dim_comparison[id_exp, id_key, id_node] = exp_dictionary[exp_vec[id_exp]][key][id_node]['dim_ker']
                 except:
                     dim_comparison[id_exp, id_key, id_node] = 0
                     print('key', key, 'is not in the file')
@@ -478,7 +478,7 @@ def plot_hist_ker(ax, lgth_vector, dim_comparison,
                             color = col[id_exp+1],
                             alpha=0.2)
         
-        #ax.legend(loc=0,fontsize=12)
+        
         
 def plot_error_comparison(ax, lgth_vector, dim_comparison,
                           title, col = mpl.color_sequences['tab20c']):
@@ -554,14 +554,18 @@ def plot_comparison_analysis(ax, exp_dictionary, net_name, method, title,
                   colors='k',
                   linestyles='dashed')
         ax.set_ylabel(r'def($\Psi(\bar{x})$)')
-    
+        if plot_legend:
+            ax.legend(loc=0,fontsize=12)
+        if not plot_legend:
+            ax.set_xlabel(r'length of time series $n$')
     else:
         plot_error_comparison(ax, lgth_vector, dim_comparison, title,col = [color])
-        ax.set_ylabel(r'$E_i$')
+        ax.set_ylabel(r'$E$')
         ax.set_xlim(300, 2050)
+        ax.set_xlabel(r'length of time series $n$')
         if plot_legend:
             ax.legend(loc=0)
-    ax.set_xlabel(r'length of time series $n$')
+    
     
     #ax.set_ylim(0, 1300)
     #ax.set_title(r'Kernel')
@@ -745,6 +749,83 @@ def plot_lgth_dependence(net_name, exps_dictionary, title,
         
         ax1.set_title(r'b)', loc='left')
     #fig.suptitle('b)')
+    if filename == None:
+        
+        plt.show()
+    else:
+        plt.savefig(filename+".pdf", format='pdf', bbox_inches='tight')
+        
+    return     
+
+
+def fig_1_paper(net_name, exps_dictionaries, title,  
+                method = ker_dim_compare,
+                plot_ycoord= True,
+                plot_def = True,
+                filename = None):    
+    '''
+    Plot the reconstruction performance vs length of time series.
+
+
+    Parameters
+    ----------
+    net_name : str
+        Network filename.
+    exps_dictionary : dict
+        Dictionary carrying the information about the experiments to be plotted.
+    title : str
+        Title to be plotted.
+    filename : str, optional
+        Saving pdf filename. The default is None.
+
+    Returns
+    -------
+    None.
+
+    '''
+    
+    
+    fig_ = plt.figure(figsize = (5.5, 5.5), dpi = 300)
+    subfigs = fig_.subfigures(2, 2)
+    title_ = [[r'a)', r'b)'], [r'c)', r'd)']]
+    
+    plots_legend = [True, False]
+    
+    for id_, net_id in enumerate(net_name):
+        exps_dictionary = exps_dictionaries[id_]
+        keys = list(exps_dictionary.keys())
+        n_cols = int(len(keys))
+        
+        if n_cols > 1:
+            color = ['darkcyan', 'midnightblue']
+        else:
+            color = [None]
+        
+            
+        fig1 = subfigs[id_, 0]
+        
+        ax = fig1.subplots(1, 1)
+        G_true = nx.read_edgelist("network_structure/{}.txt".format(net_id),
+                            nodetype = int, create_using = nx.Graph)
+        
+        pos_true = nx.spring_layout(G_true)
+        
+        ax_plot_graph(ax, G_true, pos_true, ns = 100)
+        ax.set_title(title_[id_][0], loc='left')
+        
+        fig = subfigs[id_, 1]
+        gs1 = GridSpec(nrows=1, ncols=1, figure=fig)
+        ax1 = fig.add_subplot(gs1[0])
+        
+        for id_col in range(n_cols):
+            exp_dictionary = exps_dictionary[keys[id_col]]
+            
+            plot_comparison_analysis(ax1, exp_dictionary, net_id, method, title[id_col], 
+                                     plot_ycoord, plot_def, plots_legend[id_], 
+                                     color[id_col])
+            
+            ax1.set_title(title_[id_][1], loc='left')
+        
     if filename == None:
         
         plt.show()
