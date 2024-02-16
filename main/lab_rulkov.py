@@ -553,7 +553,7 @@ def plot_comparison_analysis(ax, exp_dictionary, net_name, method, title,
         ax.hlines(1, lgth_vector[0], lgth_vector[-1],
                   colors='k',
                   linestyles='dashed')
-        ax.set_ylabel(r'def($\Psi(\bar{x})$)')
+        ax.set_ylabel(r'def($\Psi(\bar{\mathbf{x}})$)')
         if plot_legend:
             ax.legend(loc=0,fontsize=12)
         if not plot_legend:

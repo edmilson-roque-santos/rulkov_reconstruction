@@ -465,7 +465,9 @@ def determine_critical_n(exp_param, size, exp_name, net_info, id_trial = None,
         except:
             print("There is already a net!")
     
-    m_N_ = scipy.special.comb(2*size, 2, exact = True)*scipy.special.comb(r, 2, exact = True) + 2*size*r + 1
+    m_N_ = scipy.special.comb(2*size, 2, exact = True)*\
+        scipy.special.comb(r, 2, exact = True) + 2*size*r + 1
+    
     m_N = 2*m_N_
     
     #Based on a fit from points between 3 - 14, we identify a exponential growth. 
