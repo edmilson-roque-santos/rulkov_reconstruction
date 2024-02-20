@@ -553,6 +553,11 @@ def plot_comparison_analysis(ax, exp_dictionary, net_name, method, title,
         ax.hlines(1, lgth_vector[0], lgth_vector[-1],
                   colors='k',
                   linestyles='dashed')
+        
+        n = np.arange(0, 1261, 1, dtype = int)
+        def_ = 1261 - n
+        ax.plot(n, def_, '-.', color='tab:orange')
+        
         ax.set_ylabel(r'def($\Psi(\bar{\mathbf{x}})$)')
         if plot_legend:
             ax.legend(loc=0,fontsize=12)
@@ -567,9 +572,10 @@ def plot_comparison_analysis(ax, exp_dictionary, net_name, method, title,
             ax.legend(loc=0)
     
     
-    #ax.set_ylim(0, 1300)
+    ax.set_xlim(0, 2000)
     #ax.set_title(r'Kernel')
     ax.set_yscale('log')
+    #ax.set_xscale('log')
     
 def plot_comparison_n_critical(ax, exp_dictionary, plot_legend):    
     '''
@@ -749,6 +755,7 @@ def plot_lgth_dependence(net_name, exps_dictionary, title,
         
         ax1.set_title(r'b)', loc='left')
     #fig.suptitle('b)')
+    
     if filename == None:
         
         plt.show()
@@ -785,11 +792,11 @@ def fig_1_paper(net_name, exps_dictionaries, title,
     '''
     
     
-    fig_ = plt.figure(figsize = (5.5, 5.5), dpi = 300)
-    subfigs = fig_.subfigures(2, 2)
-    title_ = [[r'a)', r'b)'], [r'c)', r'd)']]
+    fig_ = plt.figure(figsize = (5.5, 7), dpi = 300)
+    subfigs = fig_.subfigures(3, 2)
+    title_ = [[r'a)', r'b)'], [r'c)', r'd)'], [r'e)', r'f)']]
     
-    plots_legend = [True, False]
+    plots_legend = [True, False, False]
     
     for id_, net_id in enumerate(net_name):
         exps_dictionary = exps_dictionaries[id_]
@@ -1070,8 +1077,25 @@ def plot_pareto_front(sparsity_of_vector, pareto_front):
     filename='pareto_font'
     plt.savefig(filename+".pdf", format='pdf', bbox_inches='tight')
     plt.show()
-    
+ 
+def exp(t, A, lbda, gamma):
+    r"""y(t) = A \cdot \exp(-\lambda t)"""
+    return A * np.exp(-lbda * t**gamma)
+
+def sine(t, omega, phi):
+    r"""y(t) = \sin(\omega \cdot t + phi)"""
+    return np.sin(omega * t + phi)
+
+def damped_sine(t, A, lbda, gamma, omega, phi):
+    r"""y(t) = A \cdot \exp(-\lambda t) \cdot \left( \sin \left( \omega t + \phi ) \right)"""
+    return exp(t, A, lbda, gamma) * sine(t, omega, phi)
+
+from scipy.optimize import curve_fit
+
+
 def plot_corr(lgth_time_series, size, index):
+    
+    id_xlim = 500
     
     X_t = gen_X_time_series_sample(lgth_time_series, net_name = 'star_graph_{}'.format(size))
     #X_t = np.random.normal(size = (lgth_time_series, size))
@@ -1079,12 +1103,26 @@ def plot_corr(lgth_time_series, size, index):
     for id_ in index:
         lags, ax = tools.x_corr(X_t[:, id_], X_t[:, id_])
         lgn = int(lags.shape[0]/2)
-        plt.semilogy(lags[lgn:], np.absolute(ax)[lgn:])
+        plt.plot(lags[lgn:lgn+id_xlim], ax[lgn:lgn+id_xlim])
+        
+        popt, pcov = curve_fit(damped_sine, lags[lgn:lgn+id_xlim], ax[lgn:lgn+id_xlim], 
+                               bounds=(0, [2., 1.2, 1.2, 10, 10]))
+        
+        print(*[f"{val:.2f}+/-{err:.2f}" for val, err in zip(popt, np.sqrt(np.diag(pcov)))])
+
+            
+        plt.plot(lags[lgn:lgn+id_xlim], damped_sine(lags[lgn:lgn+id_xlim], *popt), '--') #label='fit: a=%5.3f, b=%5.3f, c=%5.3f' % tuple(popt)
+        #plt.plot(lags[lgn:], np.absolute(ax)[lgn:])
+        
+    
+    #plt.plot(lags[lgn:], np.exp(-0.01*lags[lgn:]), 'k-')
+    
+    plt.xlim(-10, id_xlim)
     
     #lags, cx = tools.x_corr(X_t[:, index[0]], X_t[:, index[1]])
     #plt.semilogy(lags[lgn:], np.absolute(cx)[lgn:])
     
-    return ax 
+    return lags, ax 
 #=============================================================================#
 #Figure scripts
 #=============================================================================#
@@ -1151,7 +1189,7 @@ def fig_comp_ts(net_dict, filename = None):
         plt.savefig(filename+".pdf", format = 'pdf')
 '''
 
-def Fig_1(net_dict, net_name, id_node = 0, filename = None):
+def Fig_5(net_dict, net_name, id_node = 0, filename = None):
 
     fig_ = plt.figure(layout='constrained', 
                       figsize = (10, 6), 

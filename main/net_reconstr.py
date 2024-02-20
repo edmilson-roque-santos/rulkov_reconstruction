@@ -410,7 +410,7 @@ def kernel_calculation(X_t_, params, if_spectral = False, if_kernel = False):
     net_dict['PHI'] = PHI
     net_dict['PHI.T PHI'] = PHI.T @ PHI 
     net_dict['params'] = params_.copy()   #for reference we save the params used
-        
+    M = 2*PHI.shape[1]
     params_['power_indices'] = np.vstack((params_['power_indices'], params_['power_indices'][1:,:]))
     
     id_trial = params_['id_trial']
@@ -429,7 +429,7 @@ def kernel_calculation(X_t_, params, if_spectral = False, if_kernel = False):
             s = svd(THETA, compute_uv=False)
             x_eps_dict[id_node]['spectral'] = s
             
-        ker_THETA = null_space(THETA)
+        ker_THETA = null_space(THETA, rcond=np.finfo(float).eps *M)
         x_eps_dict[id_node]['dim_ker'] = ker_THETA.shape[1]
         if if_kernel:
             x_eps_dict[id_node]['ker'] = ker_THETA        

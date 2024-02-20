@@ -589,8 +589,8 @@ def net_seed(G, rs, method):
     return exp_
 
 def ker_net_seed(G, rs, method):
-    exp_name = 'ker_n_vary'
-    net_name = 'star_graph_N=9'
+    exp_name = 'rcond_modified_ker_n_vary'
+    net_name = 'star_graph_9'
     lgth_endpoints = [100, 2001, 100]
     random_seed = rs
     save_full_info = False
@@ -628,7 +628,7 @@ def MC_script(main, net_name = 'star_graphs_n_4_hub_coupled'):
     G = nx.read_edgelist("network_structure/{}.txt".format(net_name),
                         nodetype = int, create_using = nx.Graph)
     ##### Randomness
-    Nseeds = 1
+    Nseeds = 10
     MonteCarlo_seeds = np.arange(1, Nseeds + 1)     # Seed for random number generator
     
     exp_ = dict()
@@ -767,7 +767,7 @@ def exp_setting_n_c(exps_name, sizes_endpoints, net_class = 'ring_graph',
     return exps_dictionary
 
 def fig1_plot_script(Nseeds = 10):
-    net_name = ['star_graphs_n_4_hub_coupled', 'star_graph_N=9']
+    net_name = ['ring_graph_10', 'star_graphs_n_4_hub_coupled', 'star_graph_N=9']
     
     exps_dictionary1 =  exp_setup(lgths_endpoints = [[100, 2001, 100]],
                                     exps_name = ['ker_n_vary'],
@@ -778,13 +778,38 @@ def fig1_plot_script(Nseeds = 10):
                                     exps_name = ['ker_n_vary'],
                                     net_name =  net_name[1],
                                     Nseeds = Nseeds)
-    exps_dictionaries = [exps_dictionary1, exps_dictionary2]
+    
+    exps_dictionary3 =  exp_setup(lgths_endpoints = [[100, 2001, 100]],
+                                    exps_name = ['ker_n_vary'],
+                                    net_name = net_name[2],
+                                    Nseeds = Nseeds)
+    
+    
+    exps_dictionaries = [exps_dictionary1, exps_dictionary2, exps_dictionary3]
     title = [r'Dependence on $n$']
     
     lr.fig_1_paper(net_name, exps_dictionaries, title,
                    filename = 'Figures/ker_n_vary')    
 
-
+def fig_decay_plot_script(Nseeds = 10):
+    
+    net_name = ['star_graph_9']
+    
+    exps_dictionary1 =  exp_setup(lgths_endpoints = [[100, 2001, 100]],
+                                    exps_name = ['rcond_modified_ker_n_vary'],
+                                    net_name = net_name[0],
+                                    Nseeds = Nseeds)
+    
+    title = [r'Dependence on $n$']
+    
+    lr.plot_lgth_dependence('star_graph_9', 
+                            exps_dictionary1, 
+                            title, 
+                            plot_ycoord= True,
+                            plot_def = True,
+                            filename = None)    
+    
+    
 def star_plot_script(Nseeds = 10):
     exps_dictionary = exp_setup(lgths_endpoints = [[350, 2001, 50], [350, 2001, 50]],
                                        exps_name = ['l2_n_vary_trs_5000', 'n_vary_trs_5000'],
