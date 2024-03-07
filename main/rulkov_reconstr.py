@@ -425,7 +425,7 @@ def access_n_c(net_dict, defc = 1):
     defect_PHI = np.zeros(N)
     
     for i, id_node in enumerate(net_dict['params']['id_trial']):
-        defect_PHI[i] = net_dict['info_x_eps'][id_node]
+        defect_PHI[i] = net_dict['info_x_eps'][id_node]['dim_ker']
     
     mask = defect_PHI == defc
     
@@ -613,13 +613,13 @@ def star_n_c_script(rs):
     None.
 
     '''
-    defc = 10
+    defc = 25
     exp_name = 'star_graph_nc_{}'.format(defc)
     
     net_info = dict()
     net_info['net_class'] = 'star_graph'
     net_info['gen'] = tools.star_graph
-    size_endpoints = [15, 21, 2]
+    size_endpoints = [4, 29, 2]
     id_trial = None
     
     compare_setup_critical_n(exp_name, net_info, size_endpoints, id_trial, 
