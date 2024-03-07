@@ -135,9 +135,9 @@ def l2_inner_product(func1, func2, params):
     norm_factor = params['density_normalization']
     integrand = lambda x: func1(x)*func2(x)*density(x)/norm_factor
        
-    proj, err = quad(integrand, a, b, epsabs = 1e-8, epsrel = 1e-8)
+    proj, err = quad(integrand, a, b, epsabs = 1e-12, epsrel = 1e-12)
     
-    return np.around(proj, 8)
+    return np.around(proj, 12)
 
 def generate_moments(params, single_density = True):
     '''
@@ -182,6 +182,7 @@ def generate_moments(params, single_density = True):
         for id_node in range(N):
             params[x_t[id_node]]['moments'] = dict()
             for deg in range(order + 1):
+                print(x_t[id_node],'m_{}'.format(deg))
                 params[x_t[id_node]]['moments']['m_{}'.format(deg)] = l2_inner_product(poly(deg),
                                                                          lambda x: 1,
                                                                          params[x_t[id_node]])       
@@ -284,8 +285,8 @@ def term_integration(expr, params):
         
     #If expr is simply a constant, simply sum to the integral's value.
     if(expr.is_constant()):
-        integr = expr.n(8)
-        return float(round(integr, 8))
+        integr = expr.n(12)
+        return float(round(integr, 12))
     
     #Otherwise, break expression in terms to calculate separately the contribution
     #for each of them in the product.        
@@ -305,7 +306,7 @@ def term_integration(expr, params):
             if expr_temp.is_constant():
                 integr = expr_temp
         
-        return float(round(integr, 8))
+        return float(round(integr, 12))
             
 
 def fubini_integration_BF(expr_GS, num_of_args, params):
@@ -339,7 +340,7 @@ def fubini_integration_BF(expr_GS, num_of_args, params):
         for id_args in range(len(expr_args)):
             integral = integral + term_integration(expr_args[id_args], params)
         
-        return float(round(integral, 8))
+        return float(round(integral, 12))
     
 def spy_l2_inner_product(expr_1, expr_2, params):
     '''
@@ -361,13 +362,13 @@ def spy_l2_inner_product(expr_1, expr_2, params):
 
     '''
     expr = expr_1*expr_2
-    expr = expr.expand().n(8)
+    expr = expr.expand().n(12)
     poly_expr = spy.poly(expr)
     num_of_args = len(poly_expr.monoms())#len(list(expr.args))
     
     integral = fubini_integration_BF(expr, num_of_args, params)
     
-    return float(round(integral, 8))
+    return float(round(integral, 12))
 
 def spy_gram_schmidt(exp_array, params_, power_indices):
     '''
@@ -392,7 +393,7 @@ def spy_gram_schmidt(exp_array, params_, power_indices):
     '''
     
     N = params_['number_of_vertices']
-    threshold_proj = 1e-8       #Determine the threshold under which the 
+    threshold_proj = 1e-12       #Determine the threshold under which the 
                                 #inner product is set to zero.
     params = params_.copy()
                             
@@ -435,7 +436,7 @@ def spy_gram_schmidt(exp_array, params_, power_indices):
                 supp = np.where(np.array(exp_array) != 0)[0]
                 num_vars = supp.shape[0]
                 if num_vars == 1:
-                    temp_func = sympy_polynomial_exp(x_t, exp_array).n(8)
+                    temp_func = sympy_polynomial_exp(x_t, exp_array).n(12)
                     
                     #power_indices has an intrinsic ordering. Hence, we create mask 
                     # to identify which index exp_array corresponds to.
@@ -452,14 +453,14 @@ def spy_gram_schmidt(exp_array, params_, power_indices):
                             if use_path:    
                                 ref_func, params = spy_gram_schmidt(tuple(power_indices[id_key - 1, :]), params, power_indices)
                                 
-                        expr = sympy_polynomial_exp(x_t, exp_array).n(8)
+                        expr = sympy_polynomial_exp(x_t, exp_array).n(12)
                         
                         integral = spy_l2_inner_product(expr, ref_func, params)
                         
                         #Cut-off any inner product below threshold_proj
                         if(np.abs(integral) < threshold_proj):
                             integral = float(0.0)
-                        integral = round(integral, 8)
+                        integral = round(integral, 12)
                         
                         temp_func = difference_spy(temp_func, multiply_spy(integral, ref_func))
                         
@@ -467,9 +468,9 @@ def spy_gram_schmidt(exp_array, params_, power_indices):
                     
                     if integral < 0:
                         print('Warning: L2^2 norm is negative', integral)
-                    integral = round(abs(integral), 8)
+                    integral = round(abs(integral), 12)
                     
-                    norm = spy.sqrt(integral).n(8)
+                    norm = spy.sqrt(integral).n(12)
                     norm = float(norm)
                     normed_func = temp_func/norm
                     params['orthnormfunc'][exp_array] = normed_func
@@ -799,7 +800,7 @@ def symbolic_canonical(params):
     
     return params
 
-def get_coeff_matrix_wrt_basis(sym_expr, dict_basis_functions):
+def get_coeff_matrix_wrt_basis(sym_expr_, dict_basis_functions):
     '''
     To obtain the coefficients with respect to the given basis in the dictionary
 
@@ -816,14 +817,16 @@ def get_coeff_matrix_wrt_basis(sym_expr, dict_basis_functions):
         the basis in the dictionary.
 
     '''
+    
     #Create an empty list to include all coefficient entries
     coefficient_vector = []
 
     #In case the sympy expression is the very first element of the GS process
-    if isinstance(sym_expr, float):
-        return sym_expr
+    if isinstance(sym_expr_, float):
+        return sym_expr_
     
     else:
+        sym_expr = spy.expand(sym_expr_)
         #Obtain the independent term of the sympy expression    
         coefficient_vector.append(sym_expr.as_coeff_Add()[0])
         
@@ -1184,7 +1187,7 @@ def library_matrix(X_t, params):
         
         if not crossed_terms_condition:
             #
-            params['max_deg_generating'] = (np.max(np.sum(params['power_indices'], axis = 1))*2)**2
+            params['max_deg_generating'] = (np.max(np.sum(params['power_indices'], axis = 1))*2)#**2
             params = generate_moments(params, params['single_density'])
             
             if params['build_from_reduced_basis']:
@@ -1202,7 +1205,7 @@ def library_matrix(X_t, params):
         
         if crossed_terms_condition:
             #Estimate the maximum degree appearing the calculation of norm
-            params['max_deg_generating'] = (np.max(np.sum(power_indices, axis = 1))*2)**2
+            params['max_deg_generating'] = (np.max(np.sum(power_indices, axis = 1))*2)#**2
             
             #Calculate all moments up to order max_deg_generating
             params = generate_moments(params, params['single_density'])

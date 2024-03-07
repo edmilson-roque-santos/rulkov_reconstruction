@@ -419,7 +419,7 @@ def ker_compare_setup(exp_name, net_name, G, lgth_endpoints, random_seed = 1,
         out_results_hdf5.close()
         return exp_dictionary
 
-def access_n_c(net_dict):
+def access_n_c(net_dict, defc = 1):
     N = int(net_dict['params']['number_of_vertices']/2)
     
     defect_PHI = np.zeros(N)
@@ -427,12 +427,12 @@ def access_n_c(net_dict):
     for i, id_node in enumerate(net_dict['params']['id_trial']):
         defect_PHI[i] = net_dict['info_x_eps'][id_node]
     
-    mask = defect_PHI == 1
+    mask = defect_PHI == defc
     
     return np.all(mask)
     
 def determine_critical_n(exp_param, size, exp_name, net_info, id_trial = None, 
-                         random_seed = 1, r = 3):
+                         random_seed = 1, r = 3, defc = 1):
     '''
     Determine the minimum length of time series for a successfull reconstruction.
 
@@ -470,15 +470,9 @@ def determine_critical_n(exp_param, size, exp_name, net_info, id_trial = None,
     
     m_N = 2*m_N_
     
-    #Based on a fit from points between 3 - 14, we identify a exponential growth. 
-    #We employ this fitting to calculate larger values of N
+    size_step = int(np.round(m_N/10))
     
-    m_N_0 = int(np.round(np.exp(4.4)*np.exp(0.3*size)))
-    
-    size_step = int(np.round(m_N_0/10))
-        
-    
-    lgth_time_series_vector = np.arange(m_N_0, m_N**2, size_step, dtype = int)
+    lgth_time_series_vector = np.arange(m_N, m_N**2, size_step, dtype = int)
     id_, max_iterations = 0, 100
     
     find_critical = True
@@ -498,9 +492,9 @@ def determine_critical_n(exp_param, size, exp_name, net_info, id_trial = None,
         
         net_dict = compare_script(script_dict)
     
-        if access_n_c(net_dict):
+        if access_n_c(net_dict, defc):
             find_critical = False
-            print('Defect THETA = 1!')
+            print('Defect THETA = {}!'.format(defc))
         
         id_ = id_ + 1
     
@@ -508,7 +502,7 @@ def determine_critical_n(exp_param, size, exp_name, net_info, id_trial = None,
     return n_critical
 
 def compare_setup_critical_n(exp_name, net_info, size_endpoints, id_trial,
-                             random_seed = 1, save_full_info = False):
+                             random_seed = 1, save_full_info = False, defc = 1):
     '''
     Comparison script to growing the net size and evaluate the critical length of 
     time series for a successful reconstruction.
@@ -569,7 +563,8 @@ def compare_setup_critical_n(exp_name, net_info, size_endpoints, id_trial,
                 print('exp:', key, 'N = ', size)
                 
                 n_critical = determine_critical_n(exp_params[key], size, exp_name, 
-                                                  net_info, id_trial, random_seed)
+                                                  net_info, id_trial, random_seed,
+                                                  defc = defc)
                 
                 out_results_hdf5[key][size] = dict()
                 out_results_hdf5[key][size]['n_critical'] = n_critical
@@ -589,9 +584,14 @@ def net_seed(G, rs, method):
     return exp_
 
 def ker_net_seed(G, rs, method):
+    
+    #r = 3
+    #m_N = scipy.special.comb(2*N, 2, exact = True)*scipy.special.comb(r, 2, exact = True) + 2*N*r + 1
+    #2*m_N
+    
     exp_name = 'rcond_modified_ker_n_vary'
-    net_name = 'star_graph_9'
-    lgth_endpoints = [100, 2001, 100]
+    net_name = 'star_graph_14'
+    lgth_endpoints = [2700, 8101, 100]
     random_seed = rs
     save_full_info = False
     exp_ = method(exp_name, net_name, G, lgth_endpoints, random_seed, 
@@ -613,23 +613,26 @@ def star_n_c_script(rs):
     None.
 
     '''
-    exp_name = 'star_graph_nc'
+    defc = 10
+    exp_name = 'star_graph_nc_{}'.format(defc)
     
     net_info = dict()
     net_info['net_class'] = 'star_graph'
     net_info['gen'] = tools.star_graph
     size_endpoints = [15, 21, 2]
     id_trial = None
+    
     compare_setup_critical_n(exp_name, net_info, size_endpoints, id_trial, 
-                             random_seed = rs, save_full_info = False)
+                             random_seed = rs, save_full_info = False,
+                             defc = defc)
 
 def MC_script(main, net_name = 'star_graphs_n_4_hub_coupled'):
     
     G = nx.read_edgelist("network_structure/{}.txt".format(net_name),
                         nodetype = int, create_using = nx.Graph)
     ##### Randomness
-    Nseeds = 10
-    MonteCarlo_seeds = np.arange(1, Nseeds + 1)     # Seed for random number generator
+    Nseeds = 9
+    MonteCarlo_seeds = np.arange(2, 1 + Nseeds + 1)     # Seed for random number generator
     
     exp_ = dict()
     for rs in MonteCarlo_seeds:
@@ -789,14 +792,56 @@ def fig1_plot_script(Nseeds = 10):
     title = [r'Dependence on $n$']
     
     lr.fig_1_paper(net_name, exps_dictionaries, title,
-                   filename = 'Figures/ker_n_vary')    
+                   filename = None)    
 
-def fig_decay_plot_script(Nseeds = 10):
+def fig_N_dependence(Nseeds = 10, filename = None):
+    
+    net_name = ['star_graph_4', 'star_graph_6', 'star_graph_9', 'star_graph_11', 
+                'star_graph_14', 'star_graph_19']
+    
+    exps_dictionary1 =  exp_setup(lgths_endpoints = [[85, 600, 2]],
+                                    exps_name = ['rcond_modified_ker_n_vary'],
+                                    net_name = net_name[0],
+                                    Nseeds = Nseeds)
+    
+    exps_dictionary2 =  exp_setup(lgths_endpoints = [[450, 900, 5]],
+                                    exps_name = ['rcond_modified_ker_n_vary'],
+                                    net_name = net_name[1],
+                                    Nseeds = Nseeds)
+    
+    exps_dictionary3 =  exp_setup(lgths_endpoints = [[100, 3001, 25]],
+                                    exps_name = ['rcond_modified_ker_n_vary'],
+                                    net_name = net_name[2],
+                                    Nseeds = Nseeds)
+    
+    exps_dictionary4 =  exp_setup(lgths_endpoints = [[1700, 3000, 30]],
+                                    exps_name = ['rcond_modified_ker_n_vary'],
+                                    net_name = net_name[3],
+                                    Nseeds = Nseeds)
+    
+    exps_dictionary5 =  exp_setup(lgths_endpoints = [[2700, 5000, 50]],
+                                    exps_name = ['rcond_modified_ker_n_vary'],
+                                    net_name = net_name[4],
+                                    Nseeds = 1)
+    
+    exps_dictionary6 =  exp_setup(lgths_endpoints = [[100, 15001, 100]],
+                                    exps_name = ['rcond_modified_ker_n_vary'],
+                                    net_name = net_name[5],
+                                    Nseeds = 1)
+    
+    
+    title = [r'Dependence on $n$']
+    exps_dictionaries = [exps_dictionary1, exps_dictionary2, exps_dictionary3, exps_dictionary4,
+                         exps_dictionary5, exps_dictionary6]
+    lr.fig_2_paper(net_name, exps_dictionaries, title,
+                   filename = filename)    
+
+def test_decay_plot_script(Nseeds = 10):
     
     net_name = ['star_graph_9']
     
-    exps_dictionary1 =  exp_setup(lgths_endpoints = [[100, 2001, 100]],
-                                    exps_name = ['rcond_modified_ker_n_vary'],
+    exps_dictionary1 =  exp_setup(lgths_endpoints = [[100, 10001, 100]],
+                                    exps_name = ['ker_n_vary'],
                                     net_name = net_name[0],
                                     Nseeds = Nseeds)
     
@@ -857,14 +902,14 @@ def n_c_plot_script(Nseeds = 10):
 
 def test():    
     script_dict = dict()
-    script_dict['opt_list'] = [True, False, False]
+    script_dict['opt_list'] = [False, False, True]
     script_dict['lgth_time_series'] = 1000
-    script_dict['exp_name'] = 'test_reconstr'
-    script_dict['net_name'] = 'star_graphs_n_4_hub_coupled'
+    script_dict['exp_name'] = 'test_ortho_reconstr'
+    script_dict['net_name'] = 'star_graph_4'
     script_dict['G'] = nx.read_edgelist("network_structure/{}.txt".format(script_dict['net_name']),
                                         nodetype = int, create_using = nx.Graph)
-    script_dict['cluster_list'] = [np.arange(0, 20, 2), np.arange(1, 20, 2)]#[np.array([0, 2]), np.array([1, 3])]#
-    script_dict['id_trial'] = np.arange(0, 20, 2)
+    script_dict['cluster_list'] = [np.array([0, 2, 4, 6, 8]), np.array([1, 3, 5, 7, 9])]#[np.arange(0, 20, 2), np.arange(1, 20, 2)]#
+    script_dict['id_trial'] = np.arange(0, 10, 1)
     script_dict['random_seed'] = 1
     
     #net_dict = net_reconstr.ADM_reconstr(X_t, params)

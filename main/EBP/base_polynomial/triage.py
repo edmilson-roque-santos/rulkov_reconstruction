@@ -47,7 +47,7 @@ def cluster_moment_est(cluster_list, params):
                     
                     X_t_cluster = params['X_time_series_data'][:, mask_cluster]
                     data_cluster = X_t_cluster.T.flatten()
-                    kernel_cluster = stats.gaussian_kde(data_cluster, bw_method = 5e-2)
+                    kernel_cluster = stats.gaussian_kde(data_cluster, bw_method = 1e-1)
                     
                     for id_node in id_vec_cluster:
                         parameters[x_t[id_node]] = dict()

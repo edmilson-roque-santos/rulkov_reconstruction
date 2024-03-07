@@ -85,7 +85,7 @@ def retrieve_dyn_sym(x_eps, params, indep_term = True):
     spy_PHI = spy.Matrix(symbolic_PHI)
     
     sv = x_eps.copy()
-    roud = 8
+    roud = 4
     sv = np.around(sv, roud)
     threshold = 10**(-roud)
 

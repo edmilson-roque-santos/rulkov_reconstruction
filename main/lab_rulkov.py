@@ -15,6 +15,7 @@ import os
 from scipy import stats
 import scipy.special
 from scipy import optimize        
+from scipy.optimize import curve_fit
 import sympy as spy
 
 
@@ -220,7 +221,7 @@ def plot_kernel_density(ax, X_time_series):
         id_color = 0
         for index in nodelist:
             Opto_orbit = X_time_series[: number_of_iterations, index]
-            kernel = stats.gaussian_kde(Opto_orbit, bw_method = 0.05)
+            kernel = stats.gaussian_kde(Opto_orbit, bw_method = 0.1)
             ax[id_col].plot(interval, 
                       kernel(interval)/kernel.integrate_box_1d(lower_bound, upper_bound), 
                       label="{}".format(int(index/2)+1),
@@ -478,7 +479,74 @@ def plot_hist_ker(ax, lgth_vector, dim_comparison,
                             color = col[id_exp+1],
                             alpha=0.2)
         
+def exp_log(t, A, lbda, gamma, beta):
+    r"""y(t) = A \cdot \exp(-\lambda t)"""
+    return A * np.exp(-lbda*t**(gamma))
+
+def sine_log(t, omega, phi):
+    r"""y(t) = \sin(\omega \cdot t + phi)"""
+    return np.sin(omega * t + phi)
+
+def damped_fun(t, A, lbda, gamma, beta, omega, phi):
+    r"""y(t) = A \cdot \exp(-\lambda t) \cdot \left( \sin \left( \omega t + \phi ) \right)"""
+    return exp_log(t, A, lbda, gamma, beta) * sine_log(t, omega, phi)
+
+
+def plot_scaling_hist_ker(ax, lgth_vector, dim_comparison, 
+                          plot_ycoord = False, col = mpl.color_sequences['tab20c']):
+    
+    nseeds, num_exp, num_lgth_vec, N = dim_comparison.shape
+    
+    r = 3
+    m_N = scipy.special.comb(N, 2, exact = True)*scipy.special.comb(r, 2, exact = True) + N*r + 1
+    
+    mask_lgth = lgth_vector > 2*m_N
+    
+    id_vec = np.arange(0, N, 2, dtype=int)
+    data_coord = np.zeros((nseeds*id_vec.shape[0], num_lgth_vec))
+
+    for id_exp in range(num_exp):
+        data = dim_comparison[:, id_exp, :, :]
+        for counter in range(num_lgth_vec):
+            data_coord[:, counter] = data[:, counter, id_vec].flatten()
         
+        mean_data, std_data = data_coord.mean(axis=0), data_coord.std(axis=0)
+        mask_ker = mean_data > 1
+        
+        mask = mask_lgth & mask_ker
+        
+        
+        lgth = lgth_vector[mask] #- lgth_vector[mask][0] + 2
+        
+        ax.plot(lgth, mean_data[mask], 
+                '-o',
+                color = col[id_exp])
+        ax.fill_between(lgth, 
+                        mean_data[mask]-std_data[mask], 
+                        mean_data[mask]+std_data[mask], 
+                        color = col[id_exp],
+                        alpha=0.2)
+        
+        ax.hlines(1, lgth[0], lgth[-1],
+                  colors='k',
+                  linestyles='dashed')
+        
+        '''
+        try:
+            popt, pcov = curve_fit(damped_fun, lgth, mean_data[mask], 
+                                   bounds=(0, [30., 1.5, 1.5, 1.5, 10, 10]))
+            
+            print(*[f"{val:.2f}+/-{err:.2f}" for val, err in zip(popt, np.sqrt(np.diag(pcov)))])
+    
+            ax.plot(lgth, damped_fun(lgth, *popt), '--',
+                    color = 'tab:orange')
+        except:
+            print('Fitting not found ')
+        '''
+        ax.set_xticks([lgth[0],lgth[-1]])
+        
+        
+    
         
 def plot_error_comparison(ax, lgth_vector, dim_comparison,
                           title, col = mpl.color_sequences['tab20c']):
@@ -506,7 +574,7 @@ def plot_error_comparison(ax, lgth_vector, dim_comparison,
         
 
 def plot_comparison_analysis(ax, exp_dictionary, net_name, method, title,
-                             plot_ycoord, plot_def, plot_legend, 
+                             plot_ycoord, plot_legend, type_plot = 'full_def',
                              color = None):    
     '''
     To plot a comparison between EBP and BP for increasing the length of time series.
@@ -548,22 +616,28 @@ def plot_comparison_analysis(ax, exp_dictionary, net_name, method, title,
                                                 net_name)
     lgth_vector = lgth_vector
     
-    if plot_def:
+    if type_plot == 'full_def':
         plot_hist_ker(ax, lgth_vector, dim_comparison, plot_ycoord, col = mpl.color_sequences['tab20c'])
         ax.hlines(1, lgth_vector[0], lgth_vector[-1],
                   colors='k',
                   linestyles='dashed')
-        
-        n = np.arange(0, 1261, 1, dtype = int)
-        def_ = 1261 - n
-        ax.plot(n, def_, '-.', color='tab:orange')
         
         ax.set_ylabel(r'def($\Psi(\bar{\mathbf{x}})$)')
         if plot_legend:
             ax.legend(loc=0,fontsize=12)
         if not plot_legend:
             ax.set_xlabel(r'length of time series $n$')
-    else:
+        
+        ax.set_yscale('log')
+        ax.set_xscale('log')
+        
+    if type_plot == 'scaling_def':
+        plot_scaling_hist_ker(ax, lgth_vector, dim_comparison, plot_ycoord, col = mpl.color_sequences['tab20c'])
+        
+        if plot_legend:
+            ax.set_ylabel(r'def($\Psi(\bar{\mathbf{x}})$)')
+        
+    if type_plot == 'error':    
         plot_error_comparison(ax, lgth_vector, dim_comparison, title,col = [color])
         ax.set_ylabel(r'$E$')
         ax.set_xlim(300, 2050)
@@ -571,12 +645,9 @@ def plot_comparison_analysis(ax, exp_dictionary, net_name, method, title,
         if plot_legend:
             ax.legend(loc=0)
     
-    
-    ax.set_xlim(0, 2000)
-    #ax.set_title(r'Kernel')
-    ax.set_yscale('log')
-    #ax.set_xscale('log')
-    
+        ax.set_yscale('log')
+        ax.set_xscale('log')
+            
 def plot_comparison_n_critical(ax, exp_dictionary, plot_legend):    
     '''
     To plot the comparison between EBP and BP in the experiment: n_c vs N
@@ -765,13 +836,14 @@ def plot_lgth_dependence(net_name, exps_dictionary, title,
     return     
 
 
+
 def fig_1_paper(net_name, exps_dictionaries, title,  
                 method = ker_dim_compare,
                 plot_ycoord= True,
                 plot_def = True,
                 filename = None):    
     '''
-    Plot the reconstruction performance vs length of time series.
+    Plot the def(Psi) vs length of time series for different respect to Ns.
 
 
     Parameters
@@ -828,9 +900,16 @@ def fig_1_paper(net_name, exps_dictionaries, title,
             exp_dictionary = exps_dictionary[keys[id_col]]
             
             plot_comparison_analysis(ax1, exp_dictionary, net_id, method, title[id_col], 
-                                     plot_ycoord, plot_def, plots_legend[id_], 
+                                     plot_ycoord, 'full_def', plots_legend[id_], 
                                      color[id_col])
             
+            N = 10
+            r = 3
+            m_N = scipy.special.comb(2*N, 2, exact = True)*scipy.special.comb(r, 2, exact = True) + 2*N*r + 1
+            n = np.arange(100, 2*m_N, 1, dtype = int) 
+            def_ = 2*m_N - n
+            ax1.plot(n, def_, '-.', color='tab:orange')
+                        
             ax1.set_title(title_[id_][1], loc='left')
         
     if filename == None:
@@ -839,7 +918,74 @@ def fig_1_paper(net_name, exps_dictionaries, title,
     else:
         plt.savefig(filename+".pdf", format='pdf', bbox_inches='tight')
         
+    return    
+
+def fig_2_paper(net_name, exps_dictionaries, title,  
+                method = ker_dim_compare,
+                plot_ycoord= True,
+                plot_def = True,
+                filename = None):    
+    '''
+    Plot Fig 1 of the paper: def(Psi) vs length of time series for different 
+
+
+    Parameters
+    ----------
+    net_name : str
+        Network filename.
+    exps_dictionary : dict
+        Dictionary carrying the information about the experiments to be plotted.
+    title : str
+        Title to be plotted.
+    filename : str, optional
+        Saving pdf filename. The default is None.
+
+    Returns
+    -------
+    None.
+
+    '''
+    
+    
+    
+    fig, ax_ = plt.subplots(3, 2, figsize = (6, 12), dpi = 300)
+    
+    title_ = [r'$N = 5$', r'$N = 7$', r'$N = 10$', r'$N = 12$', r'$N = 15$', r'$N = 20$']
+    title_1 = [r'a)', r'b)', r'c)', r'd)', r'e)', r'f)']
+    
+    plots_legend = [True, False, True, False, True, False]
+    
+    id_vec = [[0, 0], [0, 1], [1, 0], [1, 1], [2, 0], [2, 1]]
+    
+    for id_, net_id in enumerate(net_name):
+        exps_dictionary = exps_dictionaries[id_]
+        keys = list(exps_dictionary.keys())
+        n_cols = int(len(keys))
+            
+        if n_cols > 1:
+            color = ['darkcyan', 'midnightblue']
+        else:
+            color = [None]
+        ax = ax_[id_vec[id_][0],id_vec[id_][1]]
+        for id_col in range(n_cols):
+            exp_dictionary = exps_dictionary[keys[id_col]]
+            
+            plot_comparison_analysis(ax, exp_dictionary, net_id, method, title[id_col], 
+                                     plot_ycoord, plots_legend[id_], 'scaling_def', 
+                                     color[id_col])
+        ax.set_title(title_[id_])
+        ax.set_title(title_1[id_], loc = 'left')
+        if id_vec[id_][0] == 2:
+            ax.set_xlabel(r'$n$')
+
+    if filename == None:
+        
+        plt.show()
+    else:
+        plt.savefig(filename+".pdf", format='pdf', bbox_inches='tight')
+        
     return     
+
 
 def plot_n_c_size(exps_dictionary, title, filename = None,
                   plot_legend_global = True):     
@@ -1090,8 +1236,6 @@ def damped_sine(t, A, lbda, gamma, omega, phi):
     r"""y(t) = A \cdot \exp(-\lambda t) \cdot \left( \sin \left( \omega t + \phi ) \right)"""
     return exp(t, A, lbda, gamma) * sine(t, omega, phi)
 
-from scipy.optimize import curve_fit
-
 
 def plot_corr(lgth_time_series, size, index):
     
@@ -1123,6 +1267,21 @@ def plot_corr(lgth_time_series, size, index):
     #plt.semilogy(lags[lgn:], np.absolute(cx)[lgn:])
     
     return lags, ax 
+
+
+def theta(n, sigma = 1, eta = 1., kappa = 1):
+    den = 8*(sigma*2 + eta*kappa/3)*np.log(n)**2    
+    return n*eta**2/den
+    
+def plot_theta_function(m):
+    
+    n = np.arange(0.01, 10000, 0.01)
+    f = 8*np.exp(-theta(n))
+    
+    plt.plot(n, f)
+    
+    plt.plot(n, 8*np.exp(-n))
+
 #=============================================================================#
 #Figure scripts
 #=============================================================================#
