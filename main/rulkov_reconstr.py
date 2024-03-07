@@ -427,7 +427,7 @@ def access_n_c(net_dict, defc = 1):
     for i, id_node in enumerate(net_dict['params']['id_trial']):
         defect_PHI[i] = net_dict['info_x_eps'][id_node]['dim_ker']
     
-    mask = defect_PHI == defc
+    mask = defect_PHI <= defc
     
     return np.all(mask)
     
@@ -494,7 +494,7 @@ def determine_critical_n(exp_param, size, exp_name, net_info, id_trial = None,
     
         if access_n_c(net_dict, defc):
             find_critical = False
-            print('Defect THETA = {}!'.format(defc))
+            print('Defect THETA <= {}!'.format(defc))
         
         id_ = id_ + 1
     
@@ -613,7 +613,7 @@ def star_n_c_script(rs):
     None.
 
     '''
-    defc = 25
+    defc = 15
     exp_name = 'star_graph_nc_{}'.format(defc)
     
     net_info = dict()
