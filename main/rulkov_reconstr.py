@@ -619,7 +619,7 @@ def star_n_c_script(rs):
     net_info = dict()
     net_info['net_class'] = 'star_graph'
     net_info['gen'] = tools.star_graph
-    size_endpoints = [4, 29, 2]
+    size_endpoints = [4, 30, 2]
     id_trial = None
     
     compare_setup_critical_n(exp_name, net_info, size_endpoints, id_trial, 
