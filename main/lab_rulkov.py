@@ -16,6 +16,7 @@ from scipy import stats
 import scipy.special
 from scipy import optimize        
 from scipy.optimize import curve_fit
+from scipy import optimize
 import sympy as spy
 
 
@@ -648,7 +649,7 @@ def plot_comparison_analysis(ax, exp_dictionary, net_name, method, title,
         ax.set_yscale('log')
         ax.set_xscale('log')
             
-def plot_comparison_n_critical(ax, exp_dictionary, plot_legend):    
+def plot_comparison_n_critical(ax, exp_dictionary, plotdict, def_):    
     '''
     To plot the comparison between EBP and BP in the experiment: n_c vs N
 
@@ -684,6 +685,7 @@ def plot_comparison_n_critical(ax, exp_dictionary, plot_legend):
     x_v = size_vector+1
     
     col = mpl.color_sequences['tab20b']
+    '''
     ax.fill_between(x_v, 
                     avge_nc_comparison[0, :], 
                     3000, 
@@ -702,65 +704,54 @@ def plot_comparison_n_critical(ax, exp_dictionary, plot_legend):
                     avge_nc_comparison[0, :], 
                     color = col[2],
                     alpha=1.0)
+    '''
+    ax.plot(x_v, avge_nc_comparison[0, :], plotdict['marker'], 
+            label = r"$d = {}$".format(def_, ),
+            color = plotdict['color'])
     
-    ax.plot(x_v, avge_nc_comparison[0, :], 'o-', 
-            label=r'$n_0$', 
-            color='k')
+
     ax.fill_between(x_v, 
                     avge_nc_comparison[0, :]-std_nc_comparison[0, :], 
-                    avge_nc_comparison[0, :]+std_nc_comparison[0, :], 
-                    color = 'k',
+                    avge_nc_comparison[0, :]+std_nc_comparison[0, :],
+                    color = plotdict['color'],
                     alpha=0.5)
     
-    from scipy import optimize
-
-    ##########
-    # Fitting the data -- Least Squares Method
-    ##########
-
-    # Power-law fitting is best done by first converting
-    # to a linear equation and then fitting to a straight line.
-    # Note that the `logyerr` term here is ignoring a constant prefactor.
-    #
-    #  y = a * x^b
-    #  log(y) = log(a) + b*log(x)
-    #
-
-    # define our (line) fitting function
-    fitfunc = lambda p, x: p[0] + p[1] * x
-    errfunc = lambda p, x, y, err: (y - fitfunc(p, x)) / err
-    y_data = avge_nc_comparison[0, 2:]
-    logy =y_data
-    x = (size_vector[2:]+1)
-    yerr = std_nc_comparison[0, 2:]
-    logyerr = 1#yerr / y_data
-    pinit = [1.0, -1.0]
-    out = optimize.leastsq(errfunc, pinit,
-                           args=(x**2, logy, logyerr), full_output=1)
-
-    pfinal = out[0]
-    covar = out[1]
-    print('pfinal-n_0', pfinal)
-    print('covar-n_0', covar)
-
-    index = pfinal[1]
-    amp = pfinal[0]
-
-    indexErr = np.sqrt( covar[1][1] )
-    ampErr = np.sqrt( covar[0][0] ) * amp
-    leastsq_regression = amp + (index)*x**2 #np.power(10, amp + x*(index))
-    amp_ = '{:.2f}'.format(amp)
-    a = '{:.2f}'.format(index)
-    print('exp-n_0', r'${} + {} N^2$'.format(amp_, a))
-    ax.plot(x, leastsq_regression, ls = 'dashed', color='tab:orange',
-            label = r'${} + {} N^2$'.format(amp_, a),
-            alpha=0.9)
+    if plotdict['fit']:
     
-    ax.legend(loc=0)
-    ax.set_ylabel(r'$n$')
-    #ax.set_yscale('log')
-    plt.setp(ax.get_xticklabels(), visible=True)
-    ax.set_xlabel(r'$N$')
+        fitfunc = lambda p, x: p[0] + p[1] * x
+        errfunc = lambda p, x, y, err: (y - fitfunc(p, x)) / err
+        y_data = avge_nc_comparison[0, 2:]
+        logy = np.log(y_data)
+        x = (size_vector[2:]+1)
+        yerr = std_nc_comparison[0, 2:]
+        logyerr = 1#yerr / y_data
+        pinit = [1.0, -1.0]
+        out = optimize.leastsq(errfunc, pinit,
+                               args=(x, logy, logyerr), full_output=1)
+    
+        pfinal = out[0]
+        covar = out[1]
+        print('pfinal-n_0', pfinal)
+        print('covar-n_0', covar)
+    
+        index = pfinal[1]
+        amp = pfinal[0]
+    
+        indexErr = np.sqrt( covar[1][1] )
+        ampErr = np.sqrt( covar[0][0] ) * amp
+        leastsq_regression = np.power(np.e, amp + index*x) #amp + (index)*x**2 #
+        amp_ = '{:.2f}'.format(np.e**(amp))
+        a = '{:.2f}'.format(np.e**(index))
+        print('exp-n_0', r'${} + {} N^2$'.format(amp_, a))
+        ax.plot(x, leastsq_regression, ls = 'dashed', 
+                color='tab:blue',
+                label = r'$\propto {}^N$'.format(a),
+                alpha=0.9)
+        
+        ax.legend(loc=0)
+        ax.set_ylabel(r'$n$')
+        #plt.setp(ax.get_xticklabels(), visible=True)
+        ax.set_xlabel(r'$N$')
     
 def plot_lgth_dependence(net_name, exps_dictionary, title, 
                          method = ker_dim_compare,
@@ -1007,29 +998,52 @@ def plot_n_c_size(exps_dictionary, title, filename = None,
 
     '''
     
-    keys = list(exps_dictionary.keys())
-    n_cols = int(len(keys))
+    n_cols = int(len(exps_dictionary))
     
-    fig = plt.figure(figsize = (6, 3), dpi = 300)
+    fig, ax = plt.subplots(1, 1,
+                           figsize = (6, 6), 
+                           dpi = 300)
     
-    if plot_legend_global:
-        plot_legend = True
-    else:
-        plot_legend = False
-    for id_col in range(n_cols):
-        gs1 = GridSpec(nrows=1, ncols=1, figure=fig)
-        exp_dictionary = exps_dictionary[keys[id_col]]
-        ax1 = fig.add_subplot(gs1[0])
-        #ax2 = fig1.add_subplot(gs1[1])
+    axins = ax.inset_axes(
+    [0.55, 0.06, 0.40, 0.40])
+    
+    
+    ids = [[0, 1], [1, 0], [1, 1]]
+    
+    plotdict = dict()
+    plotdict[0] = dict()
+    plotdict[0]['marker'] = 'o-'
+    plotdict[0]['color'] = 'dimgrey'
+    
+    plotdict[1] = dict()
+    plotdict[1]['marker'] = 'v-'
+    plotdict[1]['color'] = 'darkgray'
+    plotdict[1]['fit'] = False
+    
+    plotdict[2] = dict()
+    plotdict[2]['marker'] = 's-'
+    plotdict[2]['color'] = 'silver'
+    plotdict[2]['fit'] = False
+    
+    defi = [15, 5, 1]
+    
+    plotdict[0]['fit'] = True
+    exp_dictionary = exps_dictionary[0][0]
+    plot_comparison_n_critical(ax, exp_dictionary, plotdict[0], defi[0])
+    plot_diagram(ax, r = 3)
+    ax.legend(fontsize=16)
+    plotdict[0]['fit'] = False
+    
+    for id_, id_col in enumerate(ids):
+        #keys = list(exps_dictionary[id_].keys())
+        exp_dictionary = exps_dictionary[id_][0]
         
-        plot_comparison_n_critical(ax1, exp_dictionary, plot_legend)
-        n_1_vs_N(ax1, r = 3)
-        if plot_legend:
-            plot_legend = False
-        #fig1.suptitle(title[1], x = 0.05)
+        plot_comparison_n_critical(axins, exp_dictionary, plotdict[id_], defi[id_])
     
-    #fig.suptitle(r'Performance diagram')
-
+    axins.legend(fontsize=11)
+    plot_diagram(axins, r = 3)
+    axins.set_xlim(2, 15)
+    axins.set_ylim(50, 10000)
     if filename == None:
         plt.show()
     else:
@@ -1047,7 +1061,7 @@ def num_basis(r=3):
     plt.show()
 
 def f(x, m_N):
-    delta = m_N - x
+    delta = (m_N - x)
     min_fun = delta*np.log(delta)-m_N
     return min_fun
 
@@ -1076,9 +1090,9 @@ def min_length_time_series(N = 3, r = 3):
     ax.vlines(root, 1, m_N)
     plt.show()    
 
-def n_1_vs_N(ax = None, r = 3):
+def plot_diagram(ax = None, r = 3):
     
-    N_vector = np.arange(2, 12, 1, dtype = int)
+    N_vector = np.arange(5, 30, 1, dtype = int)
     m_vec = np.zeros(N_vector.shape[0])
     diff_vec = np.zeros(N_vector.shape[0])
     root_vec = np.zeros(N_vector.shape[0])
@@ -1099,10 +1113,13 @@ def n_1_vs_N(ax = None, r = 3):
         ax[1].plot(N_vector, diff_vec, '-')
         ax[1].set_yscale('log')
         plt.show()   
+        return diff_vec, root_vec
     
     else:
+        ax.plot(N_vector, m_vec, '-', color='tab:red', label=r'$n = 2 m$')
+        '''
         ax.plot(N_vector, root_vec, '--', color='black', label=r'$n_1 \propto N^2$')
-        ax.plot(N_vector, m_vec, '-.', color='black', label=r'$2 m(N, r)$')
+        
         
         col = mpl.color_sequences['tab20b']
         ax.fill_between(N_vector, 
@@ -1121,52 +1138,9 @@ def n_1_vs_N(ax = None, r = 3):
         ax.text(10.5, 1700, r'III', fontsize = 15)
         ax.text(10.5, 1200, r'II', fontsize = 15)
         ax.text(10, 500, r'I', fontsize = 15)
-        ##########
-        # Fitting the data -- Least Squares Method
-        ##########
-
-        # Power-law fitting is best done by first converting
-        # to a linear equation and then fitting to a straight line.
-        # Note that the `logyerr` term here is ignoring a constant prefactor.
-        #
-        #  y = a * x^b
-        #  log(y) = log(a) + b*log(x)
-        #
-
-        # define our (line) fitting function
-        fitfunc = lambda p, x: p[0] + p[1] * x
-        errfunc = lambda p, x, y, err: (y - fitfunc(p, x)) / err
-        y_data = root_vec
-        logy = y_data
-        x = N_vector
-        yerr = 0.0001
-        logyerr = yerr / y_data
-        pinit = [1.0, -1.0]
-        out = optimize.leastsq(errfunc, pinit,
-                               args=(x**2, logy, logyerr), full_output=1)
-
-        pfinal = out[0]
-        covar = out[1]
-        print('pfinal-n_1', pfinal)
-        print('covar-n_1', covar)
-
-        index = pfinal[1]
-        amp = pfinal[0]
-
-        indexErr = np.sqrt( covar[1][1] )
-        ampErr = np.sqrt( covar[0][0] ) * amp
-        leastsq_regression = amp + (index)*x**2
-        amp_ = '{:.2f}'.format(amp)
-        a = '{:.2f}'.format(index)
-        print('exp-n_1', r'$n_1 = {} + {} N^2$'.format(amp_, a))
-        
         '''
-        ax.plot(x, leastsq_regression, '--', color='k',
-                label = r'$n_1 = {} + {} N^2$'.format(amp_, a),
-                alpha=0.8)
-        '''
-        ax.legend(loc=0)
-    return diff_vec, root_vec
+        ax.set_yscale('log')
+  
     
 def latex_model(net_dict, N = 2):
     

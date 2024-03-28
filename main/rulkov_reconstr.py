@@ -613,13 +613,13 @@ def star_n_c_script(rs):
     None.
 
     '''
-    defc = 15
+    defc = 5
     exp_name = 'star_graph_nc_{}'.format(defc)
     
     net_info = dict()
     net_info['net_class'] = 'star_graph'
     net_info['gen'] = tools.star_graph
-    size_endpoints = [4, 30, 2]
+    size_endpoints = [1, 16, 1]
     id_trial = None
     
     compare_setup_critical_n(exp_name, net_info, size_endpoints, id_trial, 
@@ -891,13 +891,24 @@ def n_c_plot_script(Nseeds = 10):
 
     '''
     title = []
-    exps_name = ['star_graph_nc']
-    size_endpoints = [[1, 11, 1]]#[[3, 51, 5]]
-    exps_dictionary = exp_setting_n_c(exps_name, size_endpoints, 
-                                             net_class = 'star_graph',
-                                             Nseeds = Nseeds)
-    #
-    lr.plot_n_c_size(exps_dictionary, title, filename = 'nc_vs_N_star')
+    exps_name = ['star_graph_nc_15']
+    size_endpoints = [[4, 30, 2]]  #[[1, 11, 1]]#[[3, 51, 5]]
+    exps_dictionary1 = exp_setting_n_c(exps_name, size_endpoints, 
+                                      net_class = 'star_graph',
+                                      Nseeds = 1)
+    size_endpoints = [[1, 16, 1]] 
+    exps_name = ['star_graph_nc_5']
+    exps_dictionary2 = exp_setting_n_c(exps_name, size_endpoints, 
+                                      net_class = 'star_graph',
+                                      Nseeds = Nseeds)
+    
+    exps_name = ['star_graph_nc_1']
+    size_endpoints = [[1, 16, 1]]
+    exps_dictionary3 = exp_setting_n_c(exps_name, size_endpoints, 
+                                      net_class = 'star_graph',
+                                      Nseeds = Nseeds)
+    exps_dictionary = [exps_dictionary1, exps_dictionary2, exps_dictionary3]
+    lr.plot_n_c_size(exps_dictionary, title, filename = 'Figures/n_vs_N')
     return exps_dictionary 
 
 def test():    
