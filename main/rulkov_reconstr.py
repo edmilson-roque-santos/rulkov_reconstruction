@@ -914,20 +914,21 @@ def n_c_plot_script(Nseeds = 10):
 def test():    
     script_dict = dict()
     script_dict['opt_list'] = [False, False, True]
-    script_dict['lgth_time_series'] = 1000
-    script_dict['exp_name'] = 'test_ortho_reconstr'
-    script_dict['net_name'] = 'star_graph_4'
+    script_dict['lgth_time_series'] = 10000
+    script_dict['exp_name'] = 'test_ortho_reconstr_two_nodes'
+    script_dict['net_name'] = 'two_nodes'
     script_dict['G'] = nx.read_edgelist("network_structure/{}.txt".format(script_dict['net_name']),
                                         nodetype = int, create_using = nx.Graph)
-    script_dict['cluster_list'] = [np.array([0, 2, 4, 6, 8]), np.array([1, 3, 5, 7, 9])]#[np.arange(0, 20, 2), np.arange(1, 20, 2)]#
-    script_dict['id_trial'] = np.arange(0, 10, 1)
+    script_dict['cluster_list'] = [np.array([0, 2]), np.array([1, 3])]#[np.arange(0, 20, 2), np.arange(1, 20, 2)]#
+    script_dict['id_trial'] = np.arange(0, 4, 1)
     script_dict['random_seed'] = 1
     
     #net_dict = net_reconstr.ADM_reconstr(X_t, params)
     #solver_optimization = cp.ECOS#CVXOPT
     #net_dict = net_reconstr.reconstr(X_t, params, solver_optimization)
     #net_reconstr.kernel_calculation(X_t, params)
-    script_dict['exp'] = net_reconstr.kernel_calculation
+    #script_dict['exp'] = net_reconstr.kernel_calculation
+    script_dict['exp'] = net_reconstr.reconstr
     net_dict = compare_script(script_dict)
     return net_dict        
     '''

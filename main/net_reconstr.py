@@ -5,7 +5,7 @@ import cvxpy as cp
 import networkx as nx 
 import numpy as np
 import os
-from scipy.linalg import null_space, svd
+from scipy.linalg import null_space, svd, block_diag
 import sympy as spy
 from tqdm import tqdm
 
@@ -95,7 +95,7 @@ def retrieve_dyn_sym(x_eps, params, indep_term = True):
         c_num_x = sv[:L]
         c_den_x = np.zeros(L)
         c_den_x[0] = 1
-        #c_den_x[1:] = sv[L:]
+        c_den_x[1:] = sv[L:]
         
     else:               
         c_num_x = sv[:L]
@@ -207,13 +207,25 @@ def reconstr(X_t_, params, solver_optimization = solver_default):
                                                                  solver_default)            
             '''
             x_eps = np.linalg.lstsq(THETA, b, rcond=-1)[0]/(np.sqrt(params_['length_of_time_series']))
-             
+            
         except:
             x_eps = np.zeros(L)
             if VERBOSE:
                 print('Solver failed: node = ', id_node)
-
-        x_eps_can = x_eps.copy()                            
+        
+        if params_['use_orthonormal']:        
+            R = params_['R']
+            R_ = block_diag(R, R)
+            c_num_x = x_eps.copy()[:params_['L']]
+            c_den_x = np.zeros(params_['L'])
+            c_den_x[0] = 1
+            c_den_x[1:] = x_eps.copy()[params_['L']:]
+            x = np.concatenate((c_num_x, c_den_x))
+            x_eps_can_temp = R_ @ x.copy()                            
+            x_eps_can = np.concatenate((x_eps_can_temp[:params_['L']],x_eps_can_temp[params_['L']+1:]))
+            
+        else:   
+            x_eps_can = x_eps.copy()                            
         x_eps_dict[id_node] = x_eps_can
         
         x_eps_matrix[:, id_node] = x_eps_can
