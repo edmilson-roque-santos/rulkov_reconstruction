@@ -100,13 +100,24 @@ def spy_rulkov_map(x_t, alpha = 4.4, sigma = 0.001, beta = 0.001):
     
     N = len(x)
     
-    f_isolated = spy.zeros(2*N, 1)
+    f_dict = dict()
+    
+    #Split the isolated dynamics into numerator and denominator
+    #f_isolated = spy.zeros(2*N, 1)
+    f_dict['num'] = spy.zeros(2*N, 1)
+    f_dict['den'] = spy.zeros(2*N, 1)
     
     for i in range(N):
-        f_isolated[2*i] = alpha/(1 + x[i]**2) + y[i]
-        f_isolated[2*i + 1] = y[i] - sigma*x[i] - beta
+        #f_isolated[2*i] = alpha/(1 + x[i]**2) + y[i]
+        #f_isolated[2*i + 1] = y[i] - sigma*x[i] - beta
         
-    return f_isolated 
+        f_dict['num'][2*i] = alpha + y[i]*(1 + x[i]**2)
+        f_dict['num'][2*i + 1] = y[i] - sigma*x[i] - beta
+        
+        f_dict['den'][2*i] = (1 + x[i]**2)
+        f_dict['den'][2*i + 1] = 1
+        
+    return f_dict
             
 def spy_diff_coupling_x(x_t, A):
     '''
@@ -129,14 +140,19 @@ def spy_diff_coupling_x(x_t, A):
     
     spy_A = spy.Matrix(A)
     
-        
-    cplg_x = spy.zeros(N_2, 1)
+    #Split the coupling function into numerator and denominator
+    #cplg_x = spy.zeros(N_2, 1)
+    cplg_dict = dict() 
+    cplg_dict['num'] = spy.zeros(N_2, 1)
+    cplg_dict['den'] = spy.zeros(N_2, 1)
     
     x = spy.Matrix(x_t[0::2])
     
     a = spy_A @ x
     
     for i in range(int(N_2/2)):
-        cplg_x[2*i] = a[i]#spy.expand(a[i] + a[i]*x[i]**2)
+        #cplg_x[2*i] = a[i]#spy.expand(a[i] + a[i]*x[i]**2)
+        cplg_dict['num'][2*i] = a[i]*(1 + x[i]**2)
+        cplg_dict['den'][2*i] = (1 + x[i]**2)
         
-    return cplg_x
+    return cplg_dict

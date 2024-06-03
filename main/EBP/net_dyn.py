@@ -142,9 +142,11 @@ def spy_gen_net_dyn(args):
     f_isolated = args['f']
     h_coupling = args['h']
     
-    F = f_isolated(x_t) + h_coupling(x_t, args['adj_matrix'])*Lambda/(max_degree)
-    
-    return F
+    f_dict = f_isolated(x_t)
+    cplg_dict = h_coupling(x_t, args['adj_matrix'])
+    F_num = f_dict['num'] + cplg_dict['num']*Lambda/(max_degree)
+    F_den = f_isolated(x_t)['den']
+    return F_num, F_den
     
 
 def get_adj_row_from_coeff_vec(id_node, coefficient_vector, parameters, 
@@ -287,10 +289,9 @@ def generate_net_dyn_model(y_0, time_length, net_dict):
     
     Z[0, :] = y_0
     
-    for i in range(N):
-        sym_expr = spy.lambdify([x_t], net_dict['sym_node_dyn'][i], 'numpy')
-        
-        for j in range(1, time_length + 1):
+    for j in range(1, time_length + 1):
+        for i in range(N):
+            sym_expr = spy.lambdify([x_t], net_dict['sym_node_dyn'][i], 'numpy')
             Z[j, i] = sym_expr(Z[j - 1, :].T)
             
             mask_bounds = (np.any(np.isnan(Z)))#(Z < params['lower_bound']) | (Z > params['upper_bound'])\| 
@@ -300,7 +301,6 @@ def generate_net_dyn_model(y_0, time_length, net_dict):
                 break
         
     return Z
-
 
 def gen_isolated_map_model(net_dict):
     '''

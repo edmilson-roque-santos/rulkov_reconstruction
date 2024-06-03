@@ -8,6 +8,7 @@ import os
 from scipy.linalg import null_space, svd, block_diag
 import sympy as spy
 from tqdm import tqdm
+import time
 
 from EBP import tools, net_dyn, optimizer
 from EBP.base_polynomial import pre_settings as pre_set 
@@ -48,7 +49,7 @@ def symb_net_dyn(params):
     '''
     net_dynamics_dict = dict()
     net_dynamics_dict['adj_matrix'] = params['adj_matrix']
-    degree = np.sum(params['adj_matrix'], axis=0)
+    degree = -1*np.diag(params['adj_matrix'])
     
     net_dynamics_dict['f'] = rulkov.spy_rulkov_map
     net_dynamics_dict['h'] = rulkov.spy_diff_coupling_x
@@ -59,6 +60,42 @@ def symb_net_dyn(params):
     
     return net_dyn_exp
 
+def get_true_coeff_net_dyn(params):
+    '''
+    Obtain the true coefficient matrix for the network dynamics splitting
+    into numerator and denominator.
+
+    Parameters
+    ----------
+    params : dict
+        
+    Returns
+    -------
+    c_matrix_num : numpy array
+        Coefficient matrix corresponding to the numerator.
+    c_matrix_den : numpy array
+        Coefficient matrix corresponding to the denominator.
+    '''
+    
+    F_num, F_den = symb_net_dyn(params)
+    
+    dict_can_bf = polb.dict_canonical_basis(params)
+
+    L, N = params['L'], params['number_of_vertices']
+    
+    c_matrix_num = np.zeros((L, N))        
+    c_matrix_den = np.zeros((L, N))        
+    
+    for id_node in range(N):
+        c_matrix_num[:, id_node] = polb.get_coeff_matrix_wrt_basis(F_num[id_node].expand(), 
+                                                       dict_can_bf)
+        
+        c_matrix_den[:, id_node] = polb.get_coeff_matrix_wrt_basis(F_den[id_node].expand(), 
+                                                       dict_can_bf)
+    
+    return c_matrix_num, c_matrix_den
+    
+    
 def retrieve_dyn_sym(x_eps, params, indep_term = True):
     '''
     Build the reconstruction model from the coefficient vector.
@@ -85,7 +122,7 @@ def retrieve_dyn_sym(x_eps, params, indep_term = True):
     spy_PHI = spy.Matrix(symbolic_PHI)
     
     sv = x_eps.copy()
-    roud = 4
+    roud = 8
     sv = np.around(sv, roud)
     threshold = 10**(-roud)
 
@@ -95,7 +132,7 @@ def retrieve_dyn_sym(x_eps, params, indep_term = True):
         c_num_x = sv[:L]
         c_den_x = np.zeros(L)
         c_den_x[0] = 1
-        c_den_x[1:] = sv[L:]
+        c_den_x[1:] = -1*sv[L:]
         
     else:               
         c_num_x = sv[:L]
@@ -109,11 +146,24 @@ def retrieve_dyn_sym(x_eps, params, indep_term = True):
     num_x = spy_PHI.dot(c_num_spy_x)
     den_x = spy_PHI.dot(c_den_spy_x)
 
-    symb_node_dyn = num_x/den_x #spy.simplify(num_x/den_x)
+    symb_node_dyn = spy.ratsimp(num_x/den_x) #spy.simplify(num_x/den_x)
 
-    return symb_node_dyn
+    expr_n, expr_d = symb_node_dyn.as_numer_denom()
+    dict_can_bf = polb.dict_canonical_basis(params)
 
-def reconstr(X_t_, params, solver_optimization = solver_default):
+    c_vec_num = polb.get_coeff_matrix_wrt_basis(expr_n.expand(), 
+                                                dict_can_bf)        
+    c_vec_den = polb.get_coeff_matrix_wrt_basis(expr_d.expand(), 
+                                                dict_can_bf)           
+    
+    if indep_term: 
+        coeff = np.concatenate((c_vec_num, c_vec_den[1:]))
+    else:       
+        coeff = np.concatenate((c_vec_num, c_vec_den))
+    
+    return symb_node_dyn, coeff
+
+def reconstr(X_t_, params, solver_optimization = solver_default, sym_net_dyn = False):
     '''
     Network reconstruction at once strategy.
     
@@ -128,7 +178,11 @@ def reconstr(X_t_, params, solver_optimization = solver_default):
     solver_optimization : cp solver, optional
         Solver to be used in the convex minimization problem. 
         The default is solver_default.
-
+    
+    sym_net_dyn: boolean, optional 
+        To express the network dynamics using symbolic language, 
+        and consequently, calculate an error function. The default is False.
+    
     Returns
     -------
     net_dict : dict
@@ -188,6 +242,10 @@ def reconstr(X_t_, params, solver_optimization = solver_default):
     
     id_trial = params_['id_trial']
     
+    #True coefficient matrix
+    cn, cd = get_true_coeff_net_dyn(net_dict['params'])
+    net_dict['c_true'] = np.vstack((cn, cd[1:, :]))
+    
     #Coefficient matrix to be used along the process
     x_eps_matrix = np.zeros((L, N))
     
@@ -198,50 +256,78 @@ def reconstr(X_t_, params, solver_optimization = solver_default):
     B_ = B.copy()
     for id_node in tqdm(id_trial, **tqdm_par):
         b = B_[:, id_node]
-        try:
-            THETA = np.hstack((PHI, -1*np.diag(b) @ PHI[:, 1:]))
-            '''
-            x_eps, num_nonzeros_vec = optimizer.l_1_optimization(b, THETA, 
-                                                                 params_['noisy_measurement'], 
-                                                                 params_,
-                                                                 solver_default)            
-            '''
-            x_eps = np.linalg.lstsq(THETA, b, rcond=-1)[0]/(np.sqrt(params_['length_of_time_series']))
+        
+        x_eps_dict[id_node] = dict()
+        if np.mod(id_node, 2):
+            start = time.time()
+            x_eps = np.linalg.lstsq(PHI, b, rcond=-1)[0]#/(np.sqrt(params_['length_of_time_series']))
+            end = time.time()            
             
-        except:
-            x_eps = np.zeros(L)
-            if VERBOSE:
-                print('Solver failed: node = ', id_node)
-        
-        if params_['use_orthonormal']:        
-            R = params_['R']
-            R_ = block_diag(R, R)
-            c_num_x = x_eps.copy()[:params_['L']]
-            c_den_x = np.zeros(params_['L'])
-            c_den_x[0] = 1
-            c_den_x[1:] = x_eps.copy()[params_['L']:]
-            x = np.concatenate((c_num_x, c_den_x))
-            x_eps_can_temp = R_ @ x.copy()                            
-            x_eps_can = np.concatenate((x_eps_can_temp[:params_['L']],x_eps_can_temp[params_['L']+1:]))
+            x_eps_dict[id_node]['time'] = end - start
             
-        else:   
-            x_eps_can = x_eps.copy()                            
-        x_eps_dict[id_node] = x_eps_can
+            x_eps_matrix[:params_['L'], id_node] = x_eps
+            x_eps_matrix[params_['L'], id_node] = -1
+            
+            if sym_net_dyn:
+                x_eps_can = x_eps_matrix[:, id_node].copy()
+                net_dict['sym_node_dyn'][id_node], c = retrieve_dyn_sym(x_eps_can, params_, 
+                                                                        indep_term = False)
+                #x_eps_matrix[:, id_node] = c.copy()
+        else:
+            start = time.time()
+            try:
+                THETA = np.hstack((PHI, np.diag(b) @ PHI[:, 1:]))
+                '''
+                x_eps, num_nonzeros_vec = optimizer.l_1_optimization(b, THETA, 
+                                                                     params_['noisy_measurement'], 
+                                                                     params_,
+                                                                     solver_default)            
+                '''
+                x_eps = np.linalg.lstsq(THETA, b, rcond=-1)[0]#/(np.sqrt(params_['length_of_time_series']))
+                
+            except:
+                x_eps = np.zeros(L)
+                if VERBOSE:
+                    print('Solver failed: node = ', id_node)
+                    
+            end = time.time()
+                
+            if params_['use_orthonormal']:        
+                R = params_['R']
+                R_ = block_diag(R, R)
+                c_num_x = x_eps.copy()[:params_['L']]
+                c_den_x = np.zeros(params_['L'])
+                c_den_x[0] = 1
+                c_den_x[1:] = x_eps.copy()[params_['L']:]
+                x = np.concatenate((c_num_x, c_den_x))
+                x_eps_can_temp = R_ @ x.copy()                            
+                x_eps_can = np.concatenate((x_eps_can_temp[:params_['L']],
+                                            x_eps_can_temp[params_['L']+1:]))
+                
+            else:   
+                x_eps_can = x_eps.copy()           
+           
+            x_eps_dict[id_node]['x_eps_can'] = x_eps_can
+            x_eps_dict[id_node]['time'] = end - start
+            
+            x_eps_matrix[:, id_node] = x_eps_can
+            if sym_net_dyn:
+                net_dict['sym_node_dyn'][id_node], c = retrieve_dyn_sym(x_eps_can, params_, 
+                                                                    indep_term = True)
         
-        x_eps_matrix[:, id_node] = x_eps_can
-        
-        net_dict['sym_node_dyn'][id_node] = retrieve_dyn_sym(x_eps_can, params_, 
-                                                             indep_term = True)
-    
+                #x_eps_matrix[:, id_node] = c
+            
     net_dict['info_x_eps'] = x_eps_dict.copy()
     net_dict['x_eps_matrix'] = x_eps_matrix
     net_dict['x_eps_matrix'][np.absolute(net_dict['x_eps_matrix']) < threshold] = 0.0
-    net_dict['error'] = uniform_error(net_dict, num_samples = 50, time_eval = 1)         
+    
+    if sym_net_dyn:
+        net_dict['error'] = uniform_error(net_dict, num_samples = 50, time_eval = 5)         
                         
-    return  net_dict      
+    return net_dict      
 
 
-def ADM_reconstr(X_t_, params, plot_pareto = False):
+def ADM_reconstr(X_t_, params, plot_pareto = False, sym_net_dyn = True):
     '''
     Network reconstruction at once strategy.
     
@@ -256,7 +342,11 @@ def ADM_reconstr(X_t_, params, plot_pareto = False):
     solver_optimization : cp solver, optional
         Solver to be used in the convex minimization problem. 
         The default is solver_default.
-
+    sym_net_dyn: boolean, optional 
+        To express the network dynamics using symbolic language, 
+        and consequently, calculate an error function. The default is False.
+    
+    
     Returns
     -------
     net_dict : dict
@@ -316,6 +406,10 @@ def ADM_reconstr(X_t_, params, plot_pareto = False):
     
     id_trial = params_['id_trial']
     
+    #True coefficient matrix
+    cn, cd = get_true_coeff_net_dyn(net_dict['params'])
+    net_dict['c_true'] = np.vstack((cn, cd))
+    
     #Coefficient matrix to be used along the process
     x_eps_matrix = np.zeros((L, N))
     
@@ -327,26 +421,42 @@ def ADM_reconstr(X_t_, params, plot_pareto = False):
     for id_node in tqdm(id_trial, **tqdm_par):
         b = B_[:, id_node]
         
+        x_eps_dict[id_node] = dict()
+        
         if np.mod(id_node, 2):
-            x_eps = np.linalg.lstsq(PHI, b, rcond=-1)[0]/(np.sqrt(params_['length_of_time_series']))
-                                            
+            start = time.time()
+            x_eps = np.linalg.lstsq(PHI, b, rcond=-1)[0]#/(np.sqrt(params_['length_of_time_series']))
+            end = time.time()            
+            
+            x_eps_dict[id_node]['time'] = end - start
+            
             x_eps_matrix[:params_['L'], id_node] = x_eps
-            x_eps_can = x_eps_matrix[:, id_node].copy()    
-            net_dict['sym_node_dyn'][id_node] = retrieve_dyn_sym(x_eps_can, params_, 
-                                                                 indep_term = True)
+            x_eps_matrix[params_['L'], id_node] = -1
+            x_eps_can = x_eps_matrix[:, id_node].copy()
+            
+            if sym_net_dyn:
+                net_dict['sym_node_dyn'][id_node], c = retrieve_dyn_sym(x_eps_can, params_, 
+                                                                     indep_term = False)
+                #x_eps_matrix[:, id_node] = c.copy()
         else:
-       
+            start = time.time()
             THETA = np.hstack((PHI, np.diag(b) @ PHI))
             sparsity_of_vector, pareto_front, matrix_sparse_vectors = ADM.ADM_pareto(THETA, params_)
             if plot_pareto:
                 lr.plot_pareto_front(sparsity_of_vector, pareto_front)
-                
-            x_eps_dict[id_node] = matrix_sparse_vectors
+            
+            x_eps_dict[id_node]['matrix_sparse_vectors'] = matrix_sparse_vectors
+            
             x_eps = ADM.pareto_test(sparsity_of_vector, pareto_front, matrix_sparse_vectors)
+            end = time.time()
+            x_eps_dict[id_node]['time'] = end - start
+            
             x_eps_can = x_eps.copy()                                    
-            x_eps_matrix[:, id_node] = x_eps_can
-            net_dict['sym_node_dyn'][id_node] = retrieve_dyn_sym(x_eps_can, params_, 
-                                                                 indep_term = False)
+            
+            net_dict['sym_node_dyn'][id_node], c = retrieve_dyn_sym(x_eps_can, params_, 
+                                                                    indep_term = False)
+            x_eps_matrix[:, id_node] = c    
+            
         '''
         try:
             
@@ -355,14 +465,15 @@ def ADM_reconstr(X_t_, params, plot_pareto = False):
             if VERBOSE:
                 print('Solver failed: node = ', id_node)
         '''  
-        
-        
     
     net_dict['info_x_eps'] = x_eps_dict.copy()
     net_dict['x_eps_matrix'] = x_eps_matrix
     net_dict['x_eps_matrix'][np.absolute(net_dict['x_eps_matrix']) < threshold] = 0.0
-    net_dict['error'] = uniform_error(net_dict, num_samples = 50, time_eval = 1)         
-    return  net_dict      
+    
+    if sym_net_dyn:
+        net_dict['error'] = uniform_error(net_dict, num_samples = 50, time_eval = 1)         
+    
+    return net_dict      
 
 def kernel_calculation(X_t_, params, if_spectral = False, if_kernel = False):
     '''
@@ -483,12 +594,12 @@ def uniform_error(net_dict, num_samples = 50, time_eval = 1):
     for id_test in test_indices:
         y_0 = Y_t[id_test, :]
         Z = net_dyn.generate_net_dyn_model(y_0, time_eval, net_dict)
-
+        
         for id_node in range(N):
             y_true = Y_t[id_test:id_test + time_eval + 1, id_node]
             error = tools.RSME(y_true[1:], Z[1:, id_node])
             
             error_matrix[id_node] = error_matrix[id_node]\
                 + error**2/num_samples   
-    
+        
     return np.sqrt(error_matrix)

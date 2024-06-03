@@ -122,11 +122,11 @@ def compare_script(script_dict):
     A = nx.to_numpy_array(G, nodelist = list(range(N)))
     A = np.asarray(A)
     degree = np.sum(A, axis=0)
-    parameters['adj_matrix'] = A
+    parameters['adj_matrix'] = A - degree*np.identity(A.shape[0])
     parameters['coupling'] = 0.01
     #==========================================================#
     net_dynamics_dict = dict()
-    net_dynamics_dict['adj_matrix'] = parameters['adj_matrix'] - degree*np.identity(A.shape[0])
+    net_dynamics_dict['adj_matrix'] = A - degree*np.identity(A.shape[0])
     
     transient_time = 5000
     test_time = 2001
@@ -325,6 +325,127 @@ def compare_setup(exp_name, net_name, G, lgth_endpoints, random_seed = 1,
                     out_results_hdf5[key][lgth_time_series]['params'] = dict()
                     save_dict(net_dict['params'], out_results_hdf5[key][lgth_time_series]['params'])            
                 
+                
+        exp_dictionary = out_results_hdf5.to_dict()        
+        out_results_hdf5.close()
+        return exp_dictionary
+
+def lgth_compare_setup(exp_name, net_name, G, method_name, number_of_points = 25, 
+                       r = 3,
+                       sym_net_dyn = False,
+                       random_seed = 1,
+                       save_full_info = False):
+    '''
+    Script to reconstruct a network with varying number of length of time series.
+
+    Parameters
+    ----------
+    exp_name : str
+        filename.
+    net_name : str
+        network structure filename.
+    G : networkx graph
+        Graph structure.
+    method_name : str
+        Specify the method to be used:
+            'reconstr': the function uses l2 reconstruction
+            'ADM': the function performs implicit-SINDy
+    number_of_points : int, optional
+        Number of time series points to be tested. The default is 25.
+    r : int, optional
+        Maximum degree of the polynomial expansion. The default is 3.
+    sym_net_dyn: boolean, optional 
+        To express the network dynamics using symbolic language, 
+        and consequently, calculate an error function. The default is False.
+    random_seed : int, optional
+        Pseudo-generator seed. The default is 1.
+    save_full_info : boolean, optional
+        Save further reconstruction parameters. The default is False.
+
+    Returns
+    -------
+    exp_dictionary : dict
+        Results.
+
+    '''
+    exp_params = dict()
+    #canonical
+    exp_params[0] = [True, False, False]
+    #normalize_cols
+    #exp_params[0] = [True, True, False]
+    #orthonormal
+    #exp_params[1] = [False, False, True]
+    
+    if method_name == 'reconstr':
+        method = net_reconstr.reconstr#ADM_reconstr#
+    if method_name == 'ADM':
+        method = net_reconstr.ADM_reconstr
+    
+    #Filename for output results
+    out_results_direc = out_dir(net_name, exp_name)
+    filename = "mtdname_{}_num_points_{}_seed_{}".format(method_name,
+                                                         number_of_points, 
+                                                         random_seed) 
+    
+    if os.path.isfile(out_results_direc+filename+".hdf5"):
+        out_results_hdf5 = h5dict.File(out_results_direc+filename+".hdf5", 'r')
+        exp_dictionary = out_results_hdf5.to_dict()  
+        out_results_hdf5.close()      
+        return exp_dictionary
+    
+    else:
+        out_results_hdf5 = h5dict.File(out_results_direc+filename+".hdf5", 'a')    
+        
+        size = len(G)
+        m_N_ = scipy.special.comb(2*size, 2, exact = True)*\
+            scipy.special.comb(r, 2, exact = True) + 2*size*r + 1
+        
+        m_N = 2*m_N_
+        
+        lgth_time_series_vector = np.linspace(m_N, 5*m_N, number_of_points, dtype = int)
+                
+        out_results_hdf5['lgth_endpoints'] = lgth_time_series_vector
+        out_results_hdf5['exp_params'] = dict() 
+        out_results_hdf5['exp_params'] = exp_params
+        
+        for key in exp_params.keys():    
+            out_results_hdf5[key] = dict()
+            for lgth_time_series in lgth_time_series_vector:
+                print('exp:', key, 'n = ', lgth_time_series)
+                
+                script_dict = dict()
+                script_dict['opt_list'] = exp_params[key]
+                script_dict['lgth_time_series'] = lgth_time_series
+                script_dict['exp_name'] = exp_name
+                script_dict['net_name'] = net_name
+                script_dict['G'] = G
+                
+                if exp_params[key][2]:
+                    N = len(G)
+                    script_dict['cluster_list'] = [np.arange(0, 2*N, 2), np.arange(1, 2*N, 2)]
+                
+                script_dict['id_trial'] = None
+                script_dict['random_seed'] = random_seed
+                script_dict['exp'] = method
+                
+                net_dict = compare_script(script_dict)
+                out_results_hdf5[key][lgth_time_series] = dict()
+                
+                out_results_hdf5[key][lgth_time_series]['x_eps_matrix'] = net_dict['x_eps_matrix']
+                
+                if sym_net_dyn:
+                    out_results_hdf5[key][lgth_time_series]['error'] = net_dict['error']
+                
+                N = net_dict['params']['number_of_vertices']
+                for id_node in range(N):
+                    out_results_hdf5[key][lgth_time_series][id_node] = net_dict['info_x_eps'][id_node]['time']
+                    
+                if save_full_info:
+                    out_results_hdf5[key][lgth_time_series]['PHI.T PHI'] = net_dict['PHI.T PHI']
+                    out_results_hdf5[key][lgth_time_series]['params'] = dict()
+                    save_dict(net_dict['params'], out_results_hdf5[key][lgth_time_series]['params'])            
+            
+            out_results_hdf5[key]['c_true'] = net_dict['c_true']
                 
         exp_dictionary = out_results_hdf5.to_dict()        
         out_results_hdf5.close()
@@ -583,6 +704,21 @@ def net_seed(G, rs, method):
                       save_full_info)
     return exp_
 
+def net_lght_seed(G, rs, method):
+    exp_name = 'ADM_coeff'
+    net_name = 'star_graph_N=5'
+    method_name = 'ADM'
+    number_of_points = 2
+    random_seed = rs
+    save_full_info = False
+    exp_ = lgth_compare_setup(exp_name, net_name, G, method_name, 
+                              number_of_points =  number_of_points, 
+                              r = 3, 
+                              random_seed = rs,
+                              save_full_info = save_full_info)
+    
+    return exp_
+
 def ker_net_seed(G, rs, method):
     
     #r = 3
@@ -631,8 +767,8 @@ def MC_script(main, net_name = 'star_graphs_n_4_hub_coupled'):
     G = nx.read_edgelist("network_structure/{}.txt".format(net_name),
                         nodetype = int, create_using = nx.Graph)
     ##### Randomness
-    Nseeds = 9
-    MonteCarlo_seeds = np.arange(2, 1 + Nseeds + 1)     # Seed for random number generator
+    Nseeds = 1
+    MonteCarlo_seeds = np.arange(1, Nseeds + 1)     # Seed for random number generator
     
     exp_ = dict()
     for rs in MonteCarlo_seeds:
@@ -913,22 +1049,19 @@ def n_c_plot_script(Nseeds = 10):
 
 def test():    
     script_dict = dict()
-    script_dict['opt_list'] = [False, False, True]
-    script_dict['lgth_time_series'] = 10000
-    script_dict['exp_name'] = 'test_ortho_reconstr_two_nodes'
-    script_dict['net_name'] = 'two_nodes'
+    script_dict['opt_list'] = [True, False, False]
+    script_dict['lgth_time_series'] = 1600
+    script_dict['exp_name'] = 'l2_test_teval_2_neg_coeff'
+    script_dict['net_name'] = 'star_graph_N=5'
     script_dict['G'] = nx.read_edgelist("network_structure/{}.txt".format(script_dict['net_name']),
                                         nodetype = int, create_using = nx.Graph)
     script_dict['cluster_list'] = [np.array([0, 2]), np.array([1, 3])]#[np.arange(0, 20, 2), np.arange(1, 20, 2)]#
-    script_dict['id_trial'] = np.arange(0, 4, 1)
+    script_dict['id_trial'] = np.arange(0, 10, 1)
     script_dict['random_seed'] = 1
     
-    #net_dict = net_reconstr.ADM_reconstr(X_t, params)
-    #solver_optimization = cp.ECOS#CVXOPT
-    #net_dict = net_reconstr.reconstr(X_t, params, solver_optimization)
-    #net_reconstr.kernel_calculation(X_t, params)
     #script_dict['exp'] = net_reconstr.kernel_calculation
     script_dict['exp'] = net_reconstr.reconstr
+    #script_dict['exp'] = net_reconstr.ADM_reconstr
     net_dict = compare_script(script_dict)
     return net_dict        
     '''

@@ -1290,7 +1290,7 @@ def fig_return_map(X_time_series, filename=None):
 def fig_time_series(X_time_series, filename=None):
     fig, ax = plt.subplots(1, 2, figsize = (10, 3), dpi=300)
  
-    plot_time_series(ax, X_time_series)
+    plot_time_series(ax, X_time_series, perc_view=1, sharex=False)
     if filename == None:
         plt.tight_layout()
 
