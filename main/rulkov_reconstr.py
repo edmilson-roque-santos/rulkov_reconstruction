@@ -404,7 +404,7 @@ def lgth_compare_setup(exp_name, net_name, G, method_name, number_of_points = 25
         
         lgth_time_series_vector = np.linspace(m_N, 5*m_N, number_of_points, dtype = int)
                 
-        out_results_hdf5['lgth_endpoints'] = lgth_time_series_vector
+        out_results_hdf5['lgth_vector'] = lgth_time_series_vector
         out_results_hdf5['exp_params'] = dict() 
         out_results_hdf5['exp_params'] = exp_params
         
