@@ -707,8 +707,8 @@ def net_seed(G, rs, method):
 def net_lght_seed(G, rs, method):
     exp_name = 'ADM_coeff'
     net_name = 'star_graph_N=5'
-    method_name = 'ADM'
-    number_of_points = 2
+    method_name = 'ADM'#'reconstr'
+    number_of_points = 30
     random_seed = rs
     save_full_info = False
     exp_ = lgth_compare_setup(exp_name, net_name, G, method_name, 
@@ -767,7 +767,7 @@ def MC_script(main, net_name = 'star_graphs_n_4_hub_coupled'):
     G = nx.read_edgelist("network_structure/{}.txt".format(net_name),
                         nodetype = int, create_using = nx.Graph)
     ##### Randomness
-    Nseeds = 1
+    Nseeds = 10
     MonteCarlo_seeds = np.arange(1, Nseeds + 1)     # Seed for random number generator
     
     exp_ = dict()
