@@ -96,7 +96,7 @@ def get_true_coeff_net_dyn(params):
     return c_matrix_num, c_matrix_den
     
     
-def retrieve_dyn_sym(x_eps, params, indep_term = True):
+def retrieve_dyn_sym(x_eps, params, indep_term = True, threshold = 1e-8):
     '''
     Build the reconstruction model from the coefficient vector.
 
@@ -122,11 +122,9 @@ def retrieve_dyn_sym(x_eps, params, indep_term = True):
     spy_PHI = spy.Matrix(symbolic_PHI)
     
     sv = x_eps.copy()
-    roud = 8
-    sv = np.around(sv, roud)
-    threshold = 10**(-roud)
-
+    roud = int(-1*np.log10(threshold)) - 1
     sv[np.absolute(sv) < threshold] = 0
+    sv = np.around(sv, roud)
     
     if indep_term:
         c_num_x = sv[:L]
@@ -146,7 +144,7 @@ def retrieve_dyn_sym(x_eps, params, indep_term = True):
     num_x = spy_PHI.dot(c_num_spy_x)
     den_x = spy_PHI.dot(c_den_spy_x)
 
-    symb_node_dyn = spy.ratsimp(num_x/den_x) #spy.simplify(num_x/den_x)
+    symb_node_dyn = spy.cancel(num_x/den_x) #spy.ratsimp(num_x/den_x) 
 
     expr_n, expr_d = symb_node_dyn.as_numer_denom()
     dict_can_bf = polb.dict_canonical_basis(params)
@@ -447,14 +445,17 @@ def ADM_reconstr(X_t_, params, plot_pareto = False, sym_net_dyn = True):
             
             x_eps_dict[id_node]['matrix_sparse_vectors'] = matrix_sparse_vectors
             
-            x_eps = ADM.pareto_test(sparsity_of_vector, pareto_front, matrix_sparse_vectors)
+            x_eps, threshold_ADM = ADM.pareto_test(sparsity_of_vector, pareto_front, matrix_sparse_vectors)
             end = time.time()
             x_eps_dict[id_node]['time'] = end - start
             
             x_eps_can = x_eps.copy()                                    
             
+            print('Calculating symbolic expression')
+            
             net_dict['sym_node_dyn'][id_node], c = retrieve_dyn_sym(x_eps_can, params_, 
-                                                                    indep_term = False)
+                                                                    indep_term = False,
+                                                                    threshold = threshold)
             x_eps_matrix[:, id_node] = c    
             
         '''

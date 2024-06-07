@@ -1050,8 +1050,8 @@ def n_c_plot_script(Nseeds = 10):
 def test():    
     script_dict = dict()
     script_dict['opt_list'] = [True, False, False]
-    script_dict['lgth_time_series'] = 1600
-    script_dict['exp_name'] = 'l2_test_teval_2_neg_coeff'
+    script_dict['lgth_time_series'] = 390
+    script_dict['exp_name'] = 'ADM_symb_coeff'
     script_dict['net_name'] = 'star_graph_N=5'
     script_dict['G'] = nx.read_edgelist("network_structure/{}.txt".format(script_dict['net_name']),
                                         nodetype = int, create_using = nx.Graph)
@@ -1060,8 +1060,8 @@ def test():
     script_dict['random_seed'] = 1
     
     #script_dict['exp'] = net_reconstr.kernel_calculation
-    script_dict['exp'] = net_reconstr.reconstr
-    #script_dict['exp'] = net_reconstr.ADM_reconstr
+    #script_dict['exp'] = net_reconstr.reconstr
+    script_dict['exp'] = net_reconstr.ADM_reconstr
     net_dict = compare_script(script_dict)
     return net_dict        
     '''

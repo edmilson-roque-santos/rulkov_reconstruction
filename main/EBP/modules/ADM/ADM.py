@@ -260,5 +260,5 @@ def pareto_test(sparsity_of_vector, pareto_front, matrix_sparse_vectors):
     
     #sparse vector chosen from the pareto test
     sparse_vector = matrix_sparse_vectors[pos_minimum_error, :]
-    
-    return sparse_vector
+    threshold = pareto_front[pos_different_zero, 0]
+    return sparse_vector, threshold
