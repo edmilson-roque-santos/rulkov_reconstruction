@@ -14,6 +14,7 @@ from numpy.random import default_rng
 import os 
 import re
 from scipy import stats, signal
+from scipy.linalg import norm
 from sklearn.metrics import mean_squared_error
 import sympy as spy
 from sympy.parsing.sympy_parser import parse_expr
@@ -342,6 +343,12 @@ def x_corr(sign1, sign2):
     cx = signal.correlate(s1, s2, mode='full')
    
     return lags, cx
+
+
+def rel_error_coeff(c1, c2):
+    
+    return norm(c1 - c2, axis = 0)/(norm(c1, axis = 0) + norm(c2, axis = 0))
+
 
 #========================================================#
 #Functions saving data

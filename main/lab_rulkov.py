@@ -407,6 +407,55 @@ def error_compare(exp_dictionary, net_name):
     
     return lgth_vector, error_comparison
 
+def coeff_time_compare(exp_dictionary, net_name):
+    '''
+    Given a experiment dict, it calculates the performance of the reconstruction.
+
+    Parameters
+    ----------
+    exp_dictionary : dict
+        Output results dictionary.
+    net_name : str
+        Filename.
+
+    Returns
+    -------
+    lgth_vector : numpy array 
+        Array with length of time series vector.
+    FP_comparison : numpy array
+        False positive proportion for each length of time series.
+    FN_comparison : numpy array
+        False negative proportion for each length of time series.
+    d_matrix : TYPE
+        DESCRIPTION.
+
+    '''
+    
+    seeds_vec = list(exp_dictionary.keys())
+    lgth_vector = exp_dictionary[seeds_vec[0]]['lgth_vector']
+    G = nx.read_edgelist("network_structure/{}.txt".format(net_name),
+                        nodetype = int, create_using = nx.Graph)
+    
+    N = 2*len(G)
+    
+    c_true = exp_dictionary[seeds_vec[0]][0]['c_true']
+    
+    coeff_comparison = np.zeros((len(seeds_vec), lgth_vector.shape[0], N))
+    time = np.zeros((len(seeds_vec), lgth_vector.shape[0], N))
+
+    for id_exp, seed in enumerate(seeds_vec):
+        for id_key in range(len(lgth_vector)):
+            key = lgth_vector[id_key]
+            for id_node in range(N):
+                
+                time[id_exp, id_key, id_node] = exp_dictionary[seed][0][key][id_node]
+                
+            coeff_comparison[id_exp, id_key, :] = tools.rel_error_coeff(exp_dictionary[seed][0][key]['x_eps_matrix'],
+                                                                              c_true)
+                
+    return lgth_vector, coeff_comparison, time
+
+
 
 def compare_basis_net_size(exp_dictionary):
     '''
@@ -546,9 +595,7 @@ def plot_scaling_hist_ker(ax, lgth_vector, dim_comparison,
         '''
         ax.set_xticks([lgth[0],lgth[-1]])
         
-        
     
-        
 def plot_error_comparison(ax, lgth_vector, dim_comparison,
                           title, col = mpl.color_sequences['tab20c']):
     
@@ -571,6 +618,32 @@ def plot_error_comparison(ax, lgth_vector, dim_comparison,
                         color = col[id_exp],
                         alpha=0.2)
 
+        id_vec = id_vec + 1
+
+def plot_comparison(ax, lgth_vector, comparison_matrix,
+                    col = mpl.color_sequences['tab20c']):
+    
+    nseeds, num_lgth_vec, N = comparison_matrix.shape
+    id_vec = np.arange(0, N, 2, dtype=int)
+    data_coord = np.zeros((nseeds*id_vec.shape[0], num_lgth_vec))
+
+    leg = ['fast variable', 'slow variable']
+
+    for id_exp in range(2):
+        data = comparison_matrix.copy()
+        for counter in range(num_lgth_vec):
+            data_coord[:, counter] = data[:, counter, id_vec].flatten()
+        
+        ax.plot(lgth_vector, data_coord.mean(axis=0), 
+                '-o',
+                color = col[id_exp],
+                label=leg[id_exp])
+        ax.fill_between(lgth_vector, 
+                        data_coord.mean(axis=0)-data_coord.std(axis=0), 
+                        data_coord.mean(axis=0)+data_coord.std(axis=0), 
+                        color = col[id_exp],
+                        alpha=0.2)
+    
         id_vec = id_vec + 1
         
 
@@ -648,6 +721,46 @@ def plot_comparison_analysis(ax, exp_dictionary, net_name, method, title,
     
         ax.set_yscale('log')
         ax.set_xscale('log')
+
+
+def plot_compare_coeff_time(ax, exp_dictionary, net_name, method, plot_legend):    
+    '''
+    To plot a comparison between EBP and BP for increasing the length of time series.
+
+    Parameters
+    ----------
+    ax : Matplotlib Axes object
+        Draw the graph in the specified Matplotlib axes.
+    exp_dictionary : dict
+        Dictionary carrying the information about the experiments to be plotted.
+    net_name : str
+        Network filename.
+    plot_legend : boolean
+        To plot the legend inside the ax panel.
+
+    Returns
+    -------
+    None.
+
+    '''
+    
+    lgth_vector, coeff_comparison, time = method(exp_dictionary, net_name)
+    
+    
+    plot_comparison(ax[0], lgth_vector, coeff_comparison)
+    ax[0].set_ylabel(r'$E$')
+    #ax.set_xlim(300, 2050)
+    #ax[0].set_xlabel(r'length of time series $n$')
+    if plot_legend:
+        ax[0].legend(loc=0)
+
+    plot_comparison(ax[1], lgth_vector, time)
+    ax[1].set_ylabel(r'Elapsed time')
+    #ax.set_xlim(300, 2050)
+    ax[1].set_xlabel(r'length of time series $n$')
+    if plot_legend:
+        ax[1].legend(loc=0)
+
             
 def plot_comparison_n_critical(ax, exp_dictionary, plotdict, def_):    
     '''
@@ -826,7 +939,54 @@ def plot_lgth_dependence(net_name, exps_dictionary, title,
         
     return     
 
+def plot_compare_lgth_time(exps_dictionary, net_name, title, 
+                           method = coeff_time_compare,
+                           plot_ycoord= False,
+                           plot_def = True,
+                           filename = None):    
+    '''
+    Plot the reconstruction performance vs length of time series.
 
+
+    Parameters
+    ----------
+    net_name : str
+        Network filename.
+    exps_dictionary : dict
+        Dictionary carrying the information about the experiments to be plotted.
+    title : str
+        Title to be plotted.
+    filename : str, optional
+        Saving pdf filename. The default is None.
+
+    Returns
+    -------
+    None.
+
+    '''
+    keys = list(exps_dictionary.keys())
+    n_cols = int(len(keys))
+    
+    fig, ax = plt.subplots(2, 2, sharex=True, figsize = (8, 6), dpi = 300)
+    
+    plot_legend = True
+    for id_col in range(n_cols):
+        exp_dictionary = exps_dictionary[keys[id_col]]
+        
+        plot_compare_coeff_time([ax[0,id_col],ax[1,id_col]], exp_dictionary, 
+                                net_name, method, plot_legend)
+        
+        ax[0,id_col].set_title(title[id_col])
+        if plot_legend:
+            plot_legend = True
+        
+    if filename == None:
+        
+        plt.show()
+    else:
+        plt.savefig(filename+".pdf", format='pdf', bbox_inches='tight')
+        
+    return     
 
 def fig_1_paper(net_name, exps_dictionaries, title,  
                 method = ker_dim_compare,

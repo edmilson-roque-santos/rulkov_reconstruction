@@ -264,7 +264,7 @@ def reconstr(X_t_, params, solver_optimization = solver_default, sym_net_dyn = F
             x_eps_dict[id_node]['time'] = end - start
             
             x_eps_matrix[:params_['L'], id_node] = x_eps
-            x_eps_matrix[params_['L'], id_node] = -1
+            x_eps_matrix[params_['L'], id_node] = 1
             
             if sym_net_dyn:
                 x_eps_can = x_eps_matrix[:, id_node].copy()
@@ -274,7 +274,10 @@ def reconstr(X_t_, params, solver_optimization = solver_default, sym_net_dyn = F
         else:
             start = time.time()
             try:
-                THETA = np.hstack((PHI, np.diag(b) @ PHI[:, 1:]))
+                if sym_net_dyn:
+                    THETA = np.hstack((PHI, np.diag(b) @ PHI[:, 1:]))
+                else:
+                    THETA = np.hstack((PHI, -1*np.diag(b) @ PHI[:, 1:]))
                 '''
                 x_eps, num_nonzeros_vec = optimizer.l_1_optimization(b, THETA, 
                                                                      params_['noisy_measurement'], 
@@ -429,7 +432,7 @@ def ADM_reconstr(X_t_, params, plot_pareto = False, sym_net_dyn = True):
             x_eps_dict[id_node]['time'] = end - start
             
             x_eps_matrix[:params_['L'], id_node] = x_eps
-            x_eps_matrix[params_['L'], id_node] = -1
+            x_eps_matrix[params_['L'], id_node] = 1
             x_eps_can = x_eps_matrix[:, id_node].copy()
             
             if sym_net_dyn:

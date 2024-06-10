@@ -845,6 +845,39 @@ def exp_setup(lgths_endpoints, exps_name,
     
     return exps_dictionary
 
+def exp_compare_method(exps_name, net_name, 
+                       methods_name, number_of_points, Nseeds = 10):
+    
+    exps_dictionary = dict()
+    
+    for id_exp in range(len(exps_name)):
+        exps_dictionary[id_exp] = dict()
+        exp_name = exps_name[id_exp]
+        out_results_direc = os.path.join(folder_name, net_name)
+        out_results_direc = os.path.join(out_results_direc, exp_name)
+        out_results_direc = os.path.join(out_results_direc, '')
+        
+        if os.path.isdir(out_results_direc) == False:
+            print("Failed to find the desired result folder !")
+        
+        for seed in range(1, Nseeds + 1):
+            exps_dictionary[id_exp][seed] = dict()
+            
+            #Filename for output results
+            filename = "mtdname_{}_num_points_{}_seed_{}".format(methods_name[id_exp],
+                                                                 number_of_points, 
+                                                                 seed) 
+    
+            if os.path.isfile(out_results_direc+filename+".hdf5"):
+                out_results_hdf5 = h5dict.File(out_results_direc+filename+".hdf5", 'r')
+                exp_dictionary = out_results_hdf5.to_dict()  
+                out_results_hdf5.close()
+            
+            exps_dictionary[id_exp][seed] = exp_dictionary
+    
+    return exps_dictionary
+
+
 def exp_setting_n_c(exps_name, sizes_endpoints, net_class = 'ring_graph', 
                     Nseeds = 10):
     '''
@@ -1010,6 +1043,24 @@ def star_plot_script(Nseeds = 10):
                             plot_def = False,
                             filename = 'error_compare')
     
+def star_comparison_plot_script(Nseeds = 10):
+    exps_name = ['ADM_coeff', 'l2_coeff']
+    net_name = 'star_graph_N=5'
+    methods_name = ['ADM', 'reconstr']
+    
+    exps_dictionary = exp_compare_method(exps_name, net_name, 
+                           methods_name, number_of_points = 30, Nseeds = Nseeds)
+    
+    title = [r'Implicit SINDy', r'$\ell_2$']
+    
+    lr.plot_compare_lgth_time(exps_dictionary, net_name, title, 
+                              method = lr.coeff_time_compare,
+                              plot_ycoord= False,
+                              plot_def = True,
+                              filename = None)
+    
+    return exps_dictionary
+
 def n_c_plot_script(Nseeds = 10):
     '''
     Script to plot an experiment of determining the critical length 
