@@ -402,7 +402,7 @@ def lgth_compare_setup(exp_name, net_name, G, method_name, number_of_points = 25
         
         m_N = 2*m_N_
         
-        lgth_time_series_vector = np.linspace(m_N, 5*m_N, number_of_points, dtype = int)
+        lgth_time_series_vector = np.linspace(m_N, 2*m_N, number_of_points, dtype = int)
                 
         out_results_hdf5['lgth_vector'] = lgth_time_series_vector
         out_results_hdf5['exp_params'] = dict() 
@@ -705,9 +705,9 @@ def net_seed(G, rs, method):
     return exp_
 
 def net_lght_seed(G, rs, method):
-    exp_name = 'ADM_coeff'
+    exp_name = 'l2_coeff_mn_2mn'
     net_name = 'star_graph_N=5'
-    method_name = 'ADM'#'reconstr'
+    method_name = 'reconstr'#'ADM'#
     number_of_points = 30
     random_seed = rs
     save_full_info = False
