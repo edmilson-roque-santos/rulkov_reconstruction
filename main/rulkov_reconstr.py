@@ -402,7 +402,9 @@ def lgth_compare_setup(exp_name, net_name, G, method_name, number_of_points = 25
         
         m_N = 2*m_N_
         
-        lgth_time_series_vector = np.linspace(m_N, 2*m_N, number_of_points, dtype = int)
+        v1 = np.linspace(m_N, 1.5*m_N, number_of_points, dtype = int)
+        v2 = np.linspace(1.5*m_N, 2*m_N, 10, dtype = int)
+        lgth_time_series_vector = np.concatenate((v1, v2))
                 
         out_results_hdf5['lgth_vector'] = lgth_time_series_vector
         out_results_hdf5['exp_params'] = dict() 
@@ -1044,9 +1046,9 @@ def star_plot_script(Nseeds = 10):
                             filename = 'error_compare')
     
 def star_comparison_plot_script(Nseeds = 10):
-    exps_name = ['ADM_coeff', 'l2_coeff']
+    exps_name = ['l2_coeff_mn_2mn', 'l2_coeff_mn_2mn']
     net_name = 'star_graph_N=5'
-    methods_name = ['ADM', 'reconstr']
+    methods_name = ['reconstr', 'reconstr']
     
     exps_dictionary = exp_compare_method(exps_name, net_name, 
                            methods_name, number_of_points = 30, Nseeds = Nseeds)
@@ -1101,8 +1103,8 @@ def n_c_plot_script(Nseeds = 10):
 def test():    
     script_dict = dict()
     script_dict['opt_list'] = [True, False, False]
-    script_dict['lgth_time_series'] = 390
-    script_dict['exp_name'] = 'ADM_symb_coeff'
+    script_dict['lgth_time_series'] = 600
+    script_dict['exp_name'] = 'l2_symb_coeff'
     script_dict['net_name'] = 'star_graph_N=5'
     script_dict['G'] = nx.read_edgelist("network_structure/{}.txt".format(script_dict['net_name']),
                                         nodetype = int, create_using = nx.Graph)
@@ -1111,8 +1113,8 @@ def test():
     script_dict['random_seed'] = 1
     
     #script_dict['exp'] = net_reconstr.kernel_calculation
-    #script_dict['exp'] = net_reconstr.reconstr
-    script_dict['exp'] = net_reconstr.ADM_reconstr
+    script_dict['exp'] = net_reconstr.reconstr
+    #script_dict['exp'] = net_reconstr.ADM_reconstr
     net_dict = compare_script(script_dict)
     return net_dict        
     '''
