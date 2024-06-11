@@ -707,7 +707,7 @@ def net_seed(G, rs, method):
     return exp_
 
 def net_lght_seed(G, rs, method):
-    exp_name = 'l2_coeff_mn_2mn'
+    exp_name = 'l2_coeff_mn_15_2mn'
     net_name = 'star_graph_N=5'
     method_name = 'reconstr'#'ADM'#
     number_of_points = 30
