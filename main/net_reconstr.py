@@ -472,7 +472,8 @@ def ADM_reconstr(X_t_, params, plot_pareto = False, sym_net_dyn = True):
     net_dict['x_eps_matrix'] = x_eps_matrix
     net_dict['x_eps_matrix'][np.absolute(net_dict['x_eps_matrix']) < threshold] = 0.0
     
-    if sym_net_dyn:
+    error_calculation = False
+    if sym_net_dyn and error_calculation:
         net_dict['error'] = uniform_error(net_dict, num_samples = 50, time_eval = 1)         
     
     return net_dict      
