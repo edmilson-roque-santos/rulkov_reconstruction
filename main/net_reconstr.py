@@ -431,6 +431,7 @@ def ADM_reconstr(X_t_, params, plot_pareto = False, sym_net_dyn = True):
             x_eps_dict[id_node]['time'] = end - start
             
             x_eps_matrix[:params_['L'], id_node] = x_eps
+            x_eps_matrix[params_['L'], id_node] = 1
             
             if sym_net_dyn:
                 x_eps_can = x_eps_matrix[:, id_node].copy()

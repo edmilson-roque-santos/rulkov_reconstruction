@@ -1046,9 +1046,9 @@ def star_plot_script(Nseeds = 10):
                             filename = 'error_compare')
     
 def star_comparison_plot_script(Nseeds = 10):
-    exps_name = ['l2_coeff_mn_2mn', 'l2_coeff_mn_2mn']
+    exps_name = ['ADM_coeff_mn_15_2mn', 'l2_coeff_mn_15_2mn']
     net_name = 'star_graph_N=5'
-    methods_name = ['reconstr', 'reconstr']
+    methods_name = ['ADM', 'reconstr']
     
     exps_dictionary = exp_compare_method(exps_name, net_name, 
                            methods_name, number_of_points = 30, Nseeds = Nseeds)
