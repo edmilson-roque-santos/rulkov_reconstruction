@@ -542,6 +542,9 @@ def ker_compare_setup(exp_name, net_name, G, lgth_endpoints, random_seed = 1,
         out_results_hdf5.close()
         return exp_dictionary
 
+#=============================================================================#
+#Implicit SINDy kernel investigation
+#=============================================================================#
 def access_n_c(net_dict, defc = 1):
     N = int(net_dict['params']['number_of_vertices']/2)
     
@@ -695,6 +698,166 @@ def compare_setup_critical_n(exp_name, net_info, size_endpoints, id_trial,
         exp_dictionary = out_results_hdf5.to_dict()        
         out_results_hdf5.close()
         return exp_dictionary
+#=============================================================================#
+#Implicit SINDy kernel investigation
+#=============================================================================#
+def access_l2_n_c(net_dict):
+    N = int(net_dict['params']['number_of_vertices']/2)
+    
+    time_per_node = np.zeros(N)
+    
+    for i, id_node in enumerate(net_dict['params']['id_trial']):
+        time_per_node[i] = net_dict['info_x_eps'][id_node]['time']
+        
+    E_per_node = tools.rel_error_coeff(net_dict['c_true'], net_dict['x_eps_matrix'])
+    
+    mask = np.max(E_per_node[net_dict['params']['id_trial']]) <= 1e-5
+    
+    return mask, np.max(time_per_node)
+    
+def determine_l2_critical_n(exp_param, size, exp_name, net_info, id_trial = None, 
+                            random_seed = 1, r = 3):
+    '''
+    Determine the minimum length of time series for a successfull reconstruction.
+
+    Parameters
+    ----------
+    exp_param : list
+        Set the optlist for compare_script.
+    size : float
+        Network size.
+    exp_name : str
+        Filename.
+    net_class : str
+        Common network structure filename.
+    id_trial : numpy array
+        Set of nodes to be reconstructed.
+    random_seed : int
+        Seed for the random pseudo-generator.
+
+    Returns
+    -------
+    n_critical : float
+        minimum length of time series.
+
+    '''
+    net_name = net_info['net_class']+"_{}".format(size)
+    
+    if not os.path.isfile('network_structure/'+net_name):
+        try:
+            true_graph = net_info['gen'](size, 'network_structure/'+net_name)
+        except:
+            print("There is already a net!")
+    
+    m_N_ = scipy.special.comb(2*size, 2, exact = True)*\
+        scipy.special.comb(r, 2, exact = True) + 2*size*r + 1
+    
+    m_N = 2*m_N_
+    
+    size_step = int(np.round(m_N/10))
+    
+    lgth_time_series_vector = np.arange(m_N, 5*m_N, size_step, dtype = int)
+    id_, max_iterations = 0, 100
+    
+    find_critical = True
+    while (find_critical) and (id_ < max_iterations):
+        lgth_time_series = lgth_time_series_vector[id_]
+        print('lgth:', lgth_time_series)
+        
+        script_dict = dict()
+        script_dict['opt_list'] = exp_param
+        script_dict['lgth_time_series'] = lgth_time_series
+        script_dict['exp_name'] = exp_name
+        script_dict['net_name'] = net_name
+        script_dict['random_seed'] = random_seed
+        script_dict['G'] = true_graph
+        script_dict['id_trial'] = np.arange(0, 2*(len(true_graph)), 2)
+        script_dict['exp'] = net_reconstr.reconstr
+        
+        net_dict = compare_script(script_dict)
+        mask, max_time = access_l2_n_c(net_dict)
+        if mask:
+            find_critical = False
+            print('Error <= 0!')
+        
+        id_ = id_ + 1
+    
+    n_critical = lgth_time_series
+    time_critical = max_time
+    return n_critical, time_critical
+
+def compare_setup_l2_critical_n(exp_name, net_info, size_endpoints, id_trial,
+                                random_seed = 1, save_full_info = False, defc = 1):
+    '''
+    Comparison script to growing the net size and evaluate the critical length of 
+    time series for a successful reconstruction.
+    
+    Parameters
+    ----------
+    exp_name : str
+        Filename.
+    net_name : str
+        Network structure filename.
+    size_endpoints : list
+        Start, end and space for size vector.
+    random_seed : int
+        Seed for the random pseudo-generator.
+    save_full_info : dict, optional
+        To save the library matrix. The default is False.
+
+    Returns
+    -------
+    exp_dictionary : dict
+        Output results dictionary.
+
+    '''
+    exp_params = dict()
+    #canonical
+    exp_params[0] = [True, False, False]
+    #normalize_cols
+    #exp_params[0] = [True, True, False]
+    #orthonormal
+    #exp_params[1] = [False, False, True]
+    
+    size_vector = np.arange(size_endpoints[0], size_endpoints[1],
+                                          size_endpoints[2], dtype = int)
+    
+    #Filename for output results
+    out_results_direc = out_dir(net_info['net_class'], exp_name)
+        
+    filename = "size_endpoints_{}_{}_{}_seed_{}".format(size_endpoints[0], 
+                                                        size_endpoints[1],
+                                                        size_endpoints[2], 
+                                                        random_seed) 
+    
+    if os.path.isfile(out_results_direc+filename+".hdf5"):
+        out_results_hdf5 = h5dict.File(out_results_direc+filename+".hdf5", 'r')
+        exp_dictionary = out_results_hdf5.to_dict()  
+        out_results_hdf5.close()      
+        return exp_dictionary
+    
+    else:
+        out_results_hdf5 = h5dict.File(out_results_direc+filename+".hdf5", 'a')    
+        out_results_hdf5['size_endpoints'] = size_endpoints
+        out_results_hdf5['exp_params'] = dict() 
+        out_results_hdf5['exp_params'] = exp_params
+        
+        for key in exp_params.keys():    
+            out_results_hdf5[key] = dict()
+            for size in size_vector:
+                print('exp:', key, 'N = ', size)
+                
+                n_critical, time_critical = determine_l2_critical_n(exp_params[key], size, exp_name, 
+                                                                    net_info, id_trial, random_seed)
+                
+                out_results_hdf5[key][size] = dict()
+                out_results_hdf5[key][size]['n_critical'] = n_critical
+                out_results_hdf5[key][size]['time_critical'] = time_critical
+                
+        exp_dictionary = out_results_hdf5.to_dict()        
+        out_results_hdf5.close()
+        return exp_dictionary
+
 
 def net_seed(G, rs, method):
     exp_name = 'n_vary_trs_5000'
@@ -764,6 +927,32 @@ def star_n_c_script(rs):
                              random_seed = rs, save_full_info = False,
                              defc = defc)
 
+def star_l2_n_c_script(rs):
+    '''
+    Script to generate an experiment of determining the critical length 
+    of time series as the size of the network is increased.
+
+    Parameters
+    ----------
+    rs : int
+        Int for the seed of the random pseudo-generator.
+
+    Returns
+    -------
+    None.
+
+    '''
+    exp_name = 'star_graph_l2_nc'
+    
+    net_info = dict()
+    net_info['net_class'] = 'star_graph'
+    net_info['gen'] = tools.star_graph
+    size_endpoints = [1, 31, 2]
+    id_trial = None
+    
+    return compare_setup_l2_critical_n(exp_name, net_info, size_endpoints, id_trial, 
+                                       random_seed = rs, save_full_info = False)
+
 def MC_script(main, net_name = 'star_graphs_n_4_hub_coupled'):
     
     G = nx.read_edgelist("network_structure/{}.txt".format(net_name),
@@ -790,6 +979,19 @@ def MC_script_nc():
     for rs in MonteCarlo_seeds:
     
         exp_[rs] = star_n_c_script(rs)
+        
+    return exp_
+
+def MC_script_l2_nc():
+    
+    ##### Randomness
+    Nseeds = 10
+    MonteCarlo_seeds = np.arange(1, 1 + Nseeds)     # Seed for random number generator
+    
+    exp_ = dict()
+    for rs in MonteCarlo_seeds:
+    
+        exp_[rs] = star_l2_n_c_script(rs)
         
     return exp_
 
@@ -1053,13 +1255,13 @@ def star_comparison_plot_script(Nseeds = 10):
     exps_dictionary = exp_compare_method(exps_name, net_name, 
                            methods_name, number_of_points = 30, Nseeds = Nseeds)
     
-    title = [r'Implicit SINDy', r'$\ell_2$']
+    title = [r'Implicit-SINDy', r'$\ell_2$']
     
     lr.plot_compare_lgth_time(exps_dictionary, net_name, title, 
                               method = lr.coeff_time_compare,
                               plot_ycoord= False,
                               plot_def = True,
-                              filename = None)
+                              filename = None)#
     
     return exps_dictionary
 

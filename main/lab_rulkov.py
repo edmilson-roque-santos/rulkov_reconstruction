@@ -629,7 +629,7 @@ def plot_comparison(ax, lgth_vector, comparison_matrix,
 
     leg = ['fast variable', 'slow variable']
 
-    for id_exp in range(2):
+    for id_exp in range(1):
         data = comparison_matrix.copy()
         for counter in range(num_lgth_vec):
             data_coord[:, counter] = data[:, counter, id_vec].flatten()
@@ -748,20 +748,23 @@ def plot_compare_coeff_time(ax, exp_dictionary, net_name, method, plot_legend):
     
     
     plot_comparison(ax[0], lgth_vector, coeff_comparison)
-    ax[0].set_ylabel(r'$E$')
+    
     #ax.set_xlim(300, 2050)
     #ax[0].set_xlabel(r'length of time series $n$')
     if plot_legend:
-        ax[0].legend(loc=0)
+        ax[0].set_ylabel(r'$E$')
+        #ax[0].legend(loc=0)
 
     plot_comparison(ax[1], lgth_vector, time)
-    ax[1].set_ylabel(r'Elapsed time')
+    
     #ax.set_xlim(300, 2050)
     ax[1].set_xlabel(r'length of time series $n$')
+    
     if plot_legend:
-        ax[1].legend(loc=0)
-
-            
+        #ax[1].legend(loc=0)
+        ax[1].set_ylabel(r'Elapsed time')
+        ax[1].set_yscale('log')
+        
 def plot_comparison_n_critical(ax, exp_dictionary, plotdict, def_):    
     '''
     To plot the comparison between EBP and BP in the experiment: n_c vs N
@@ -978,7 +981,7 @@ def plot_compare_lgth_time(exps_dictionary, net_name, title,
         
         ax[0,id_col].set_title(title[id_col])
         if plot_legend:
-            plot_legend = True
+            plot_legend = False
         
     if filename == None:
         
