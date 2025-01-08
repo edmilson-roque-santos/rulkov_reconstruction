@@ -16,7 +16,6 @@ from scipy import stats
 import scipy.special
 from scipy import optimize        
 from scipy.optimize import curve_fit
-from scipy import optimize
 import sympy as spy
 
 
@@ -834,32 +833,33 @@ def plot_comparison_n_critical(ax, exp_dictionary, plotdict, def_):
     
     if plotdict['fit']:
     
-        fitfunc = lambda p, x: p[0] + p[1] * x
+        #fitfunc = lambda p, x: 1 + 2*3*x+ 1/4 * 3*2 * (2*x)*(2*x - 1) + p[0]*x**3#
+        fitfunc = lambda p, x: p[0] + p[1] * x + p[2] * x**2 + p[3] * x**3 
         errfunc = lambda p, x, y, err: (y - fitfunc(p, x)) / err
-        y_data = avge_nc_comparison[0, 2:]
+        y_data = avge_nc_comparison[0, :]#[0, 2:]
         logy = np.log(y_data)
-        x = (size_vector[2:]+1)
+        x = (size_vector+1)#(size_vector[2:]+1)
         yerr = std_nc_comparison[0, 2:]
         logyerr = 1#yerr / y_data
-        pinit = [1.0, -1.0]
+        pinit = [1.0, 1.0, 1.0, 1.0]
         out = optimize.leastsq(errfunc, pinit,
-                               args=(x, logy, logyerr), full_output=1)
+                               args=(x, y_data, logyerr), full_output=1)
     
         pfinal = out[0]
         covar = out[1]
         print('pfinal-n_0', pfinal)
         print('covar-n_0', covar)
     
-        index = pfinal[1]
+        #index = pfinal[1]
         amp = pfinal[0]
     
-        indexErr = np.sqrt( covar[1][1] )
-        ampErr = np.sqrt( covar[0][0] ) * amp
-        leastsq_regression = np.power(np.e, amp + index*x) #amp + (index)*x**2 #
+        #indexErr = np.sqrt( covar[1][1] )
+        #ampErr = np.sqrt( covar[0][0] ) * amp
+        #leastsq_regression = np.power(np.e, amp + index*x) #amp + (index)*x**2 #
         amp_ = '{:.2f}'.format(np.e**(amp))
-        a = '{:.2f}'.format(np.e**(index))
+        a = '{:.2f}'.format(1)#'{:.2f}'.format(np.e**(index))
         print('exp-n_0', r'${} + {} N^2$'.format(amp_, a))
-        ax.plot(x, leastsq_regression, ls = 'dashed', 
+        ax.plot(x, fitfunc(pfinal, x), ls = 'dashed', 
                 color='tab:blue',
                 label = r'$\propto {}^N$'.format(a),
                 alpha=0.9)
@@ -1190,7 +1190,7 @@ def plot_n_c_size(exps_dictionary, title, filename = None,
     
     defi = [15, 5, 1]
     
-    plotdict[0]['fit'] = True
+    plotdict[0]['fit'] = False
     exp_dictionary = exps_dictionary[0][0]
     plot_comparison_n_critical(ax, exp_dictionary, plotdict[0], defi[0])
     plot_diagram(ax, r = 3)
@@ -1280,6 +1280,7 @@ def plot_diagram(ax = None, r = 3):
     
     else:
         ax.plot(N_vector, m_vec, '-', color='tab:red', label=r'$n = 2 m$')
+        
         '''
         ax.plot(N_vector, root_vec, '--', color='black', label=r'$n_1 \propto N^2$')
         

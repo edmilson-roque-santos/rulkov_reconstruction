@@ -1299,14 +1299,14 @@ def n_c_plot_script(Nseeds = 10):
                                       net_class = 'star_graph',
                                       Nseeds = Nseeds)
     exps_dictionary = [exps_dictionary1, exps_dictionary2, exps_dictionary3]
-    lr.plot_n_c_size(exps_dictionary, title, filename = 'Figures/n_vs_N')
+    lr.plot_n_c_size(exps_dictionary, title, filename = 'Figures/n_vs_N_final')#
     return exps_dictionary 
 
 def test():    
     script_dict = dict()
     script_dict['opt_list'] = [True, False, False]
-    script_dict['lgth_time_series'] = 600
-    script_dict['exp_name'] = 'l2_symb_coeff'
+    script_dict['lgth_time_series'] = 15000
+    script_dict['exp_name'] = 'ADM_slow_variable'
     script_dict['net_name'] = 'star_graph_N=5'
     script_dict['G'] = nx.read_edgelist("network_structure/{}.txt".format(script_dict['net_name']),
                                         nodetype = int, create_using = nx.Graph)
@@ -1314,8 +1314,8 @@ def test():
     script_dict['id_trial'] = np.arange(0, 10, 1)
     script_dict['random_seed'] = 1
     
-    #script_dict['exp'] = net_reconstr.kernel_calculation
-    script_dict['exp'] = net_reconstr.reconstr
+    script_dict['exp'] = net_reconstr.kernel_calculation
+    #script_dict['exp'] = net_reconstr.reconstr
     #script_dict['exp'] = net_reconstr.ADM_reconstr
     net_dict = compare_script(script_dict)
     return net_dict        
